@@ -15,15 +15,15 @@ static void fat32_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
 }
 
 static void fat32_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup) {
-    // TODO
+    // TODO: remove the inode cache
 }
 
 static void fat32_getattr(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO
+    // TODO: fstat
 }
 
 static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int valid, struct fuse_file_info *fi) {
-    // TODO
+    // TODO: The dispatcher for chmod, chown, truncate and utimensat/futimens, some of them should be skipped.
 }
 
 static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode) {
@@ -56,16 +56,12 @@ static void fat32_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
     // TODO
 }
 
-static void fat32_flush(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO: always return ENOSYS
-}
-
 static void fat32_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
     // TODO: always return ENOSYS
 }
 
 static void fat32_fsync(fuse_req_t req, fuse_ino_t ino, int datasync, struct fuse_file_info *fi) {
-    // TODO
+    // TODO: write the file contents back to disk
 }
 
 static void fat32_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
@@ -73,22 +69,19 @@ static void fat32_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info 
 }
 
 static void fat32_readdir(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
-    // TODO
+    // TODO: Release is called when FUSE is completely done with a file;
+    //  at that point, you can free up any temporarily allocated data structures.
 }
 
 static void fat32_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO
+    // TODO: The same as `fat32_readdir`
 }
 
 static void fat32_fsyncdir(fuse_req_t req, fuse_ino_t ino, int datasync, struct fuse_file_info *fi) {
-    // TODO
+    // TODO: write the directory contents back to disk
 }
 
 static void fat32_statfs(fuse_req_t req, fuse_ino_t ino) {
-    // TODO
-}
-
-static void access(fuse_req_t req, fuse_ino_t ino, int mask) {
     // TODO
 }
 
