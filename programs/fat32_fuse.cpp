@@ -15,7 +15,7 @@ static void fat32_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
 }
 
 static void fat32_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup) {
-    // TODO: remove the inode cache
+    // TODO: `fat32_forget` is invoked when the file should be wiped out from the disk
 }
 
 static void fat32_getattr(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
@@ -57,7 +57,8 @@ static void fat32_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
 }
 
 static void fat32_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO: always return ENOSYS
+    // TODO: Release is called when FUSE is completely done with a file;
+    //  at that point, you can free up any temporarily allocated data structures.
 }
 
 static void fat32_fsync(fuse_req_t req, fuse_ino_t ino, int datasync, struct fuse_file_info *fi) {
@@ -69,12 +70,11 @@ static void fat32_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info 
 }
 
 static void fat32_readdir(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
-    // TODO: Release is called when FUSE is completely done with a file;
-    //  at that point, you can free up any temporarily allocated data structures.
+    // TODO
 }
 
 static void fat32_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO: The same as `fat32_readdir`
+    // TODO: The same as `fat32_release`
 }
 
 static void fat32_fsyncdir(fuse_req_t req, fuse_ino_t ino, int datasync, struct fuse_file_info *fi) {
@@ -90,10 +90,6 @@ static void fat32_create(fuse_req_t req, fuse_ino_t parent, const char *name, mo
 }
 
 static void fat32_forget_multi(fuse_req_t req, size_t count, struct fuse_forget_data *forgets) {
-    // TODO
-}
-
-static void fat32_lseek(fuse_req_t req, fuse_ino_t ino, off_t off, int whence, struct fuse_file_info *fi) {
     // TODO
 }
 
