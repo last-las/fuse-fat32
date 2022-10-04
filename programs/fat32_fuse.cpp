@@ -1,6 +1,7 @@
 #define FUSE_USE_VERSION 34
 
 #include "fuse_lowlevel.h"
+#include "fs.h"
 
 static void fat32_init(void *userdata, struct fuse_conn_info *conn) {
     // TODO
@@ -99,4 +100,5 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
 };
 
 int main(int argc, char *argv[]) {
+    device::LinuxFileDevice dev = device::LinuxFileDevice("/dev/sdb1", 512);
 }
