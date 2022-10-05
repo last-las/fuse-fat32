@@ -1,18 +1,40 @@
-#define FUSE_USE_VERSION 34
-
+#include <cerrno>
+#include <cassert>
+#include <cstdio>
+#include <cstring>
+#include <sys/types.h>
 #include "fuse_lowlevel.h"
 #include "fs.h"
+
+fs::FAT32fs filesystem;
+
+struct stat read_file_stat(fs::File& file) {
+    // TODO
+}
 
 static void fat32_init(void *userdata, struct fuse_conn_info *conn) {
     // TODO
 }
 
-static void fat32_destroy(void* userdata) {
+static void fat32_destroy(void *userdata) {
     // TODO
 }
 
 static void fat32_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
-    // TODO
+    auto parent_result = filesystem.getDir(parent);
+    assert(parent_result.has_value()); // TODO: impl panic macro and use fs.getDir().value_or() instead.
+    auto parent_dir = parent_result.value();
+    auto result = parent_dir.lookupFile(name);
+    if (result.has_value()) {
+        auto file = result.value();
+        struct fuse_entry_param e{};
+        e.attr = read_file_stat(file);
+        e.ino = file.ino();
+        // might need to do something about e.attr_timeout, e.entry_timeout
+        fuse_reply_entry(req, &e);
+    } else {
+        fuse_reply_err(req, ENOENT);
+    }
 }
 
 static void fat32_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup) {
@@ -20,11 +42,28 @@ static void fat32_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup) {
 }
 
 static void fat32_getattr(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO: fstat
+    auto result = filesystem.getFile(ino);
+    assert(result.has_value());
+    auto file = result.value();
+    auto stat = read_file_stat(file);
+    fuse_reply_attr(req, &stat, 1);
 }
 
 static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int valid, struct fuse_file_info *fi) {
     // TODO: The dispatcher for chmod, chown, truncate and utimensat/futimens, some of them should be skipped.
+    if (valid & (FUSE_SET_ATTR_MODE | FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID)) {
+        fuse_reply_err(req, EPERM); // chmod, chown cannot be implemented on fat32
+    }
+    auto result = filesystem.getFile(ino);
+    assert(result.has_value());
+    auto file = result.value();
+    if (valid & FUSE_SET_ATTR_SIZE) {
+        if (!file.truncate(attr->st_size)) {
+            fuse_reply_err(req, EPERM);
+        }
+    }
+    if (valid & (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME)) {
+    }
 }
 
 static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode) {
@@ -40,7 +79,7 @@ static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
 }
 
 static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
-                      fuse_ino_t newparent, const char *newname, unsigned int flags) {
+                         fuse_ino_t newparent, const char *newname, unsigned int flags) {
     // TODO
 }
 
@@ -97,8 +136,12 @@ static void fat32_forget_multi(fuse_req_t req, size_t count, struct fuse_forget_
 static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .init = fat32_init,
         .destroy = fat32_destroy,
+        .lookup = fat32_lookup,
+        .getattr = fat32_getattr,
 };
 
 int main(int argc, char *argv[]) {
     device::LinuxFileDevice dev = device::LinuxFileDevice("/dev/sdb1", 512);
+    filesystem = fs::FAT32fs::from(&dev);
+    printf("hello world! --fuse\n");
 }
