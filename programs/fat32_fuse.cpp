@@ -2,13 +2,23 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <optional>
 #include <sys/types.h>
+#include "utime.h"
 #include "fuse_lowlevel.h"
 #include "fs.h"
 
 fs::FAT32fs filesystem;
 
 struct stat read_file_stat(std::shared_ptr<fs::File> file) {
+    // TODO
+}
+
+std::optional<fat32::FatTimeStamp2> unix_to_dos_ts(struct timespec unix_ts) {
+    // TODO
+}
+
+fat32::FatTimeStamp2 get_cur_ts() {
     // TODO
 }
 
@@ -62,8 +72,41 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
             fuse_reply_err(req, EPERM);
         }
     }
-    if (valid & (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME)) {
+    if (valid & FUSE_SET_ATTR_CTIME) {
+        auto ts_result = unix_to_dos_ts(attr->st_ctim);
+        if(!ts_result.has_value()) {
+            fuse_reply_err(req, EINVAL);
+        }
+        fat32::FatTimeStamp2 ts2 = ts_result.value();
+        file->setCrtTime(ts2);
     }
+    if (valid & FUSE_SET_ATTR_ATIME) {
+        fat32::FatTimeStamp2 ts2{};
+        if (valid & FUSE_SET_ATTR_ATIME_NOW) {
+            ts2 = get_cur_ts();
+        } else {
+            auto ts_result = unix_to_dos_ts(attr->st_atim);
+            if (!ts_result.has_value()) {
+                fuse_reply_err(req, EINVAL);
+            }
+            ts2 = ts_result.value();
+        }
+        file->setAccTime(ts2.ts);
+    }
+    if (valid & FUSE_SET_ATTR_MTIME) {
+        fat32::FatTimeStamp2 ts2{};
+        if (valid & FUSE_SET_ATTR_MTIME_NOW) {
+            ts2 = get_cur_ts();
+        } else {
+            auto ts_result = unix_to_dos_ts(attr->st_mtim);
+            if (!ts_result.has_value()) {
+                fuse_reply_err(req, EINVAL);
+            }
+            ts2 = ts_result.value();
+        }
+        file->setWrtTime(ts2.ts);
+    }
+
 }
 
 static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode) {
@@ -138,6 +181,7 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .destroy = fat32_destroy,
         .lookup = fat32_lookup,
         .getattr = fat32_getattr,
+        .setattr = fat32_setattr,
 };
 
 int main(int argc, char *argv[]) {

@@ -8,6 +8,8 @@
 namespace fs {
     using std::shared_ptr;
     using std::optional;
+    using fat32::FatTimeStamp, fat32::FatTimeStamp2;
+
     class File {
     public:
         u64 read(u8 *buf, u64 size) noexcept;
@@ -17,6 +19,12 @@ namespace fs {
         void sync() noexcept;
 
         bool truncate(u32 length) noexcept;
+
+        void setCrtTime(FatTimeStamp2 ts) noexcept {}
+
+        void setAccTime(FatTimeStamp ts) noexcept {}
+
+        void setWrtTime(FatTimeStamp ts) noexcept {}
 
         u64 ino() noexcept {}
     };

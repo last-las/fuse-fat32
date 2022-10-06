@@ -11,8 +11,23 @@ namespace fat32 {
     struct FSInfo {
     };
 
+
+    typedef u8 TimeTenth;
+    typedef short FatTime;
+    typedef short FatDate;
+    struct FatTimeStamp {
+        FatTime time;
+        FatDate date;
+    };
+
+    struct FatTimeStamp2 {
+        TimeTenth tt;
+        FatTimeStamp ts;
+    };
+
     struct ShortDirEntry {
     };
+
 
     struct LongDirEntry {
     };
