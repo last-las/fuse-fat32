@@ -17,11 +17,9 @@ namespace fs {
      * */
     shared_ptr<File> Directory::crtFile(const char *name) noexcept {}
 
-    shared_ptr<File> Directory::crtDir(const char *name) noexcept {}
+    shared_ptr<Directory> Directory::crtDir(const char *name) noexcept {}
 
     bool Directory::delFile(const char *name) noexcept {}
-
-    bool Directory::delDir(const char *name) noexcept {}
 
     optional<shared_ptr<File>> Directory::lookupFile(const char *name) noexcept {}
 

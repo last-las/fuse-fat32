@@ -59,8 +59,8 @@ static void fat32_getattr(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info 
     fuse_reply_attr(req, &stat, 1);
 }
 
+// The dispatcher for chmod, chown, truncate and utimensat/futimens, some of them should be skipped.
 static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int valid, struct fuse_file_info *fi) {
-    // TODO: The dispatcher for chmod, chown, truncate and utimensat/futimens, some of them should be skipped.
     if (valid & (FUSE_SET_ATTR_MODE | FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID)) {
         fuse_reply_err(req, EPERM); // chmod, chown cannot be implemented on fat32
         return;
@@ -114,16 +114,52 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
     fuse_reply_err(req, 0);
 }
 
-static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode) {
-    // TODO
+// fat32 doesn't support mode
+static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t) {
+    auto parent_result = filesystem.getDir(parent);
+    assert(parent_result.has_value());
+    auto parent_dir = parent_result.value();
+    auto child_dir = parent_dir->crtDir(name);
+    struct fuse_entry_param e{};
+    e.attr = read_file_stat(child_dir);
+    e.ino = child_dir->ino();
+    fuse_reply_entry(req, &e);
 }
 
 static void fat32_unlink(fuse_req_t req, fuse_ino_t parent, const char *name) {
-    // TODO
+    auto parent_result = filesystem.getDir(parent);
+    assert(parent_result.has_value());
+    auto parent_dir = parent_result.value();
+    auto child_result = parent_dir->lookupFile(name);
+    if (!child_result.has_value()) {
+        fuse_reply_err(req, ENOENT);
+        return;
+    }
+    auto child = child_result.value();
+    if (child->isDir()) {
+        fuse_reply_err(req, EISDIR);
+        return;
+    }
+    assert(parent_dir->delFile(name));
+    fuse_reply_err(req, 0);
 }
 
 static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
-    // TODO
+    auto parent_result = filesystem.getDir(parent);
+    assert(parent_result.has_value());
+    auto parent_dir = parent_result.value();
+    auto child_result = parent_dir->lookupFile(name);
+    if (!child_result.has_value()) {
+        fuse_reply_err(req, ENOENT);
+        return;
+    }
+    auto child = child_result.value();
+    if (!child->isDir()) {
+        fuse_reply_err(req, ENOTDIR);
+        return;
+    }
+    assert(parent_dir->delFile(name));
+    fuse_reply_err(req, 0);
 }
 
 static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
@@ -187,6 +223,9 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .lookup = fat32_lookup,
         .getattr = fat32_getattr,
         .setattr = fat32_setattr,
+        .mkdir = fat32_mkdir,
+        .unlink = fat32_unlink,
+        .rmdir = fat32_rmdir,
 };
 
 int main(int argc, char *argv[]) {

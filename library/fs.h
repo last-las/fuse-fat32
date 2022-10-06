@@ -26,6 +26,8 @@ namespace fs {
 
         void setWrtTime(FatTimeStamp ts) noexcept {}
 
+        bool isDir() noexcept {}
+
         u64 ino() noexcept {}
     };
 
@@ -33,11 +35,9 @@ namespace fs {
     public:
         shared_ptr<File> crtFile(const char *name) noexcept;
 
-        shared_ptr<File> crtDir(const char *name) noexcept;
+        shared_ptr<Directory> crtDir(const char *name) noexcept;
 
         bool delFile(const char *name) noexcept;
-
-        bool delDir(const char *name) noexcept;
 
         optional<shared_ptr<File>> lookupFile(const char *name) noexcept;
 
