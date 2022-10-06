@@ -1,10 +1,12 @@
 #ifndef STUPID_FAT32_FS_H
 #define STUPID_FAT32_FS_H
 
+#include <memory>
 #include <optional>
 #include "fat32.h"
 
 namespace fs {
+    using std::shared_ptr;
     using std::optional;
     class File {
     public:
@@ -21,17 +23,17 @@ namespace fs {
 
     class Directory : public File {
     public:
-        File crtFile(const char *name) noexcept;
+        shared_ptr<File> crtFile(const char *name) noexcept;
 
-        Directory crtDir(const char *name) noexcept;
+        shared_ptr<File> crtDir(const char *name) noexcept;
 
         bool delFile(const char *name) noexcept;
 
         bool delDir(const char *name) noexcept;
 
-        optional<File> lookupFile(const char *name) noexcept;
+        optional<shared_ptr<File>> lookupFile(const char *name) noexcept;
 
-        optional<Directory> lookupDir(const char *name) noexcept;
+        optional<shared_ptr<Directory>> lookupDir(const char *name) noexcept;
     };
 
     class FAT32fs {
@@ -40,11 +42,11 @@ namespace fs {
 
         static std::optional<FAT32fs> mkfs(device::Device* device) noexcept;
 
-        Directory getRootDir() noexcept;
+        shared_ptr<Directory> getRootDir() noexcept;
 
-        optional<File> getFile(u64 ino) noexcept;
+        optional<shared_ptr<File>> getFile(u64 ino) noexcept;
 
-        optional<Directory> getDir(u64 ino) noexcept;
+        optional<shared_ptr<Directory>> getDir(u64 ino) noexcept;
     };
 
 } // namespace fs

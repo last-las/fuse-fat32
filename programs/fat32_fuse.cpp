@@ -8,7 +8,7 @@
 
 fs::FAT32fs filesystem;
 
-struct stat read_file_stat(fs::File& file) {
+struct stat read_file_stat(std::shared_ptr<fs::File> file) {
     // TODO
 }
 
@@ -24,12 +24,12 @@ static void fat32_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
     auto parent_result = filesystem.getDir(parent);
     assert(parent_result.has_value()); // TODO: impl panic macro and use fs.getDir().value_or() instead.
     auto parent_dir = parent_result.value();
-    auto result = parent_dir.lookupFile(name);
+    auto result = parent_dir->lookupFile(name);
     if (result.has_value()) {
         auto file = result.value();
         struct fuse_entry_param e{};
         e.attr = read_file_stat(file);
-        e.ino = file.ino();
+        e.ino = file->ino();
         // might need to do something about e.attr_timeout, e.entry_timeout
         fuse_reply_entry(req, &e);
     } else {
@@ -58,7 +58,7 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
     assert(result.has_value());
     auto file = result.value();
     if (valid & FUSE_SET_ATTR_SIZE) {
-        if (!file.truncate(attr->st_size)) {
+        if (!file->truncate(attr->st_size)) {
             fuse_reply_err(req, EPERM);
         }
     }

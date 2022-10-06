@@ -1,7 +1,6 @@
 #include "fs.h"
 
 namespace fs {
-    using std::optional;
     /**
      * File
      * */
@@ -16,17 +15,17 @@ namespace fs {
     /**
      * Directory
      * */
-    File Directory::crtFile(const char *name) noexcept {}
+    shared_ptr<File> Directory::crtFile(const char *name) noexcept {}
 
-    Directory Directory::crtDir(const char *name) noexcept {}
+    shared_ptr<File> Directory::crtDir(const char *name) noexcept {}
 
     bool Directory::delFile(const char *name) noexcept {}
 
     bool Directory::delDir(const char *name) noexcept {}
 
-    optional<File> Directory::lookupFile(const char *name) noexcept {}
+    optional<shared_ptr<File>> Directory::lookupFile(const char *name) noexcept {}
 
-    optional<Directory> Directory::lookupDir(const char *name) noexcept {}
+    optional<shared_ptr<Directory>> Directory::lookupDir(const char *name) noexcept {}
 
     /**
      * Filesystem
@@ -35,9 +34,9 @@ namespace fs {
 
     std::optional<FAT32fs> FAT32fs::mkfs(device::Device* device) noexcept {}
 
-    Directory FAT32fs::getRootDir() noexcept {}
+    shared_ptr<Directory> FAT32fs::getRootDir() noexcept {}
 
-    std::optional<File> FAT32fs::getFile(u64 ino) noexcept {}
+    std::optional<shared_ptr<File>> FAT32fs::getFile(u64 ino) noexcept {}
 
-    std::optional<Directory> FAT32fs::getDir(u64 ino) noexcept {}
+    std::optional<shared_ptr<Directory>> FAT32fs::getDir(u64 ino) noexcept {}
 }
