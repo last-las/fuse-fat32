@@ -63,6 +63,7 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
     // TODO: The dispatcher for chmod, chown, truncate and utimensat/futimens, some of them should be skipped.
     if (valid & (FUSE_SET_ATTR_MODE | FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID)) {
         fuse_reply_err(req, EPERM); // chmod, chown cannot be implemented on fat32
+        return;
     }
     auto result = filesystem.getFile(ino);
     assert(result.has_value());
@@ -70,12 +71,14 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
     if (valid & FUSE_SET_ATTR_SIZE) {
         if (!file->truncate(attr->st_size)) {
             fuse_reply_err(req, EPERM);
+            return;
         }
     }
     if (valid & FUSE_SET_ATTR_CTIME) {
         auto ts_result = unix_to_dos_ts(attr->st_ctim);
         if(!ts_result.has_value()) {
             fuse_reply_err(req, EINVAL);
+            return;
         }
         fat32::FatTimeStamp2 ts2 = ts_result.value();
         file->setCrtTime(ts2);
@@ -88,6 +91,7 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
             auto ts_result = unix_to_dos_ts(attr->st_atim);
             if (!ts_result.has_value()) {
                 fuse_reply_err(req, EINVAL);
+                return;
             }
             ts2 = ts_result.value();
         }
@@ -101,12 +105,13 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
             auto ts_result = unix_to_dos_ts(attr->st_mtim);
             if (!ts_result.has_value()) {
                 fuse_reply_err(req, EINVAL);
+                return;
             }
             ts2 = ts_result.value();
         }
         file->setWrtTime(ts2.ts);
     }
-
+    fuse_reply_err(req, 0);
 }
 
 static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode) {
