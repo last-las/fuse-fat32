@@ -26,9 +26,23 @@ namespace fs {
 
         void setWrtTime(FatTimeStamp ts) noexcept {}
 
+        // cppy info from target except `parent_sec_`, `entry_num_` and `name`
+        void copyFrom(shared_ptr<File> target) noexcept {}
+
         bool isDir() noexcept {}
 
+        void markDeleted() noexcept {
+            is_deleted_ = true;
+        }
+
         u64 ino() noexcept {}
+
+        void renameTo(shared_ptr<File> file) noexcept {}
+
+    private:
+        u32 parent_sec_;
+        u32 entry_num_;
+        bool is_deleted_ = false;
     };
 
     class Directory : public File {
@@ -37,18 +51,20 @@ namespace fs {
 
         shared_ptr<Directory> crtDir(const char *name) noexcept;
 
-        bool delFile(const char *name) noexcept;
+        bool delFileEntry(const char *name) noexcept;
 
         optional<shared_ptr<File>> lookupFile(const char *name) noexcept;
 
         optional<shared_ptr<Directory>> lookupDir(const char *name) noexcept;
+
+        bool isEmpty() noexcept;
     };
 
     class FAT32fs {
     public:
-        static FAT32fs from(device::Device* device) noexcept;
+        static FAT32fs from(device::Device *device) noexcept;
 
-        static std::optional<FAT32fs> mkfs(device::Device* device) noexcept;
+        static std::optional<FAT32fs> mkfs(device::Device *device) noexcept;
 
         shared_ptr<Directory> getRootDir() noexcept;
 

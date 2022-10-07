@@ -10,6 +10,12 @@
 
 fs::FAT32fs filesystem;
 
+std::shared_ptr<fs::Directory> getExistDir(fuse_ino_t ino) {
+    auto result = filesystem.getDir(ino);
+    assert(result.has_value());
+    return result.value();
+}
+
 struct stat read_file_stat(std::shared_ptr<fs::File> file) {
     // TODO
 }
@@ -76,7 +82,7 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
     }
     if (valid & FUSE_SET_ATTR_CTIME) {
         auto ts_result = unix_to_dos_ts(attr->st_ctim);
-        if(!ts_result.has_value()) {
+        if (!ts_result.has_value()) {
             fuse_reply_err(req, EINVAL);
             return;
         }
@@ -140,7 +146,8 @@ static void fat32_unlink(fuse_req_t req, fuse_ino_t parent, const char *name) {
         fuse_reply_err(req, EISDIR);
         return;
     }
-    assert(parent_dir->delFile(name));
+    assert(parent_dir->delFileEntry(name));
+    child->markDeleted();
     fuse_reply_err(req, 0);
 }
 
@@ -158,17 +165,53 @@ static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
         fuse_reply_err(req, ENOTDIR);
         return;
     }
-    assert(parent_dir->delFile(name));
+    assert(parent_dir->delFileEntry(name));
+    child->markDeleted();
     fuse_reply_err(req, 0);
 }
 
 static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
                          fuse_ino_t newparent, const char *newname, unsigned int flags) {
-    // TODO
+    if (flags) { // for simplicity, ignores when `flags` is not empty
+        fuse_reply_err(req, EINVAL);
+    }
+
+    auto old_parent = getExistDir(parent);
+    auto new_parent = getExistDir(newparent);
+    auto old_result = old_parent->lookupFile(name);
+    if (!old_result.has_value()) {
+        fuse_reply_err(req, ENOENT);
+        return;
+    }
+    auto old_file = old_result.value();
+    auto new_result = new_parent->lookupFile(newname);
+    if (new_result.has_value()) { // newname exists, overwrite
+        auto new_file = new_result.value();
+        if (old_file->isDir()) {
+            if (!new_file->isDir()) {
+                fuse_reply_err(req, ENOTDIR);
+                return;
+            } else if(!std::dynamic_pointer_cast<fs::Directory>(new_file)->isEmpty()) {
+                fuse_reply_err(req, ENOTEMPTY);
+                return;
+            }
+        }
+        old_parent->delFileEntry(name);
+        old_file->renameTo(new_file);
+        new_file->markDeleted(); // free clusters occupied by new_file
+    } else { // newname doesn't exist
+        old_parent->delFileEntry(name);
+        auto new_file = new_parent->crtFile(newname);
+        old_file->renameTo(new_file);
+        new_file->markDeleted(); // free clusters occupied by new_file
+    }
+
+    fuse_reply_err(req, 0);
 }
 
 static void fat32_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO
+    // TODO: Explicitly create a fs::File object refer to ino, store it in global variable filesystem,
+    //  and remove it in release method.
 }
 
 static void fat32_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
@@ -226,6 +269,7 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .mkdir = fat32_mkdir,
         .unlink = fat32_unlink,
         .rmdir = fat32_rmdir,
+        .rename = fat32_rename,
 };
 
 int main(int argc, char *argv[]) {

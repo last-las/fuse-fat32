@@ -19,11 +19,13 @@ namespace fs {
 
     shared_ptr<Directory> Directory::crtDir(const char *name) noexcept {}
 
-    bool Directory::delFile(const char *name) noexcept {}
+    bool Directory::delFileEntry(const char *name) noexcept {}
 
     optional<shared_ptr<File>> Directory::lookupFile(const char *name) noexcept {}
 
     optional<shared_ptr<Directory>> Directory::lookupDir(const char *name) noexcept {}
+
+    bool Directory::isEmpty() noexcept {}
 
     /**
      * Filesystem
@@ -34,6 +36,7 @@ namespace fs {
 
     shared_ptr<Directory> FAT32fs::getRootDir() noexcept {}
 
+    // `getFile` and `getDir` will find the target on the opened file map
     std::optional<shared_ptr<File>> FAT32fs::getFile(u64 ino) noexcept {}
 
     std::optional<shared_ptr<Directory>> FAT32fs::getDir(u64 ino) noexcept {}
