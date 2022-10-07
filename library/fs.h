@@ -26,9 +26,6 @@ namespace fs {
 
         void setWrtTime(FatTimeStamp ts) noexcept {}
 
-        // cppy info from target except `parent_sec_`, `entry_num_` and `name`
-        void copyFrom(shared_ptr<File> target) noexcept {}
-
         bool isDir() noexcept {}
 
         void markDeleted() noexcept {
@@ -37,7 +34,8 @@ namespace fs {
 
         u64 ino() noexcept {}
 
-        void renameTo(shared_ptr<File> file) noexcept {}
+        // modify parent_sec_, entry_num_ and filename to target's value
+        void renameTo(shared_ptr<File> target) noexcept {}
 
     private:
         u32 parent_sec_;

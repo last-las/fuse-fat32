@@ -10,8 +10,16 @@
 
 fs::FAT32fs filesystem;
 
+// If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::Directory> getExistDir(fuse_ino_t ino) {
     auto result = filesystem.getDir(ino);
+    assert(result.has_value());
+    return result.value();
+}
+
+// If ino is provided, the directory must exist on the filesystem
+std::shared_ptr<fs::File> getExistFile(fuse_ino_t ino) {
+    auto result = filesystem.getFile(ino);
     assert(result.has_value());
     return result.value();
 }
@@ -37,9 +45,7 @@ static void fat32_destroy(void *userdata) {
 }
 
 static void fat32_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
-    auto parent_result = filesystem.getDir(parent);
-    assert(parent_result.has_value()); // TODO: impl panic macro and use fs.getDir().value_or() instead.
-    auto parent_dir = parent_result.value();
+    auto parent_dir = getExistDir(parent);
     auto result = parent_dir->lookupFile(name);
     if (result.has_value()) {
         auto file = result.value();
@@ -58,9 +64,7 @@ static void fat32_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup) {
 }
 
 static void fat32_getattr(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    auto result = filesystem.getFile(ino);
-    assert(result.has_value());
-    auto file = result.value();
+    auto file = getExistFile(ino);
     auto stat = read_file_stat(file);
     fuse_reply_attr(req, &stat, 1);
 }
@@ -71,9 +75,7 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
         fuse_reply_err(req, EPERM); // chmod, chown cannot be implemented on fat32
         return;
     }
-    auto result = filesystem.getFile(ino);
-    assert(result.has_value());
-    auto file = result.value();
+    auto file = getExistFile(ino);
     if (valid & FUSE_SET_ATTR_SIZE) {
         if (!file->truncate(attr->st_size)) {
             fuse_reply_err(req, EPERM);
@@ -122,9 +124,7 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
 
 // fat32 doesn't support mode
 static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t) {
-    auto parent_result = filesystem.getDir(parent);
-    assert(parent_result.has_value());
-    auto parent_dir = parent_result.value();
+    auto parent_dir = getExistDir(parent);
     auto child_dir = parent_dir->crtDir(name);
     struct fuse_entry_param e{};
     e.attr = read_file_stat(child_dir);
@@ -133,9 +133,7 @@ static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mod
 }
 
 static void fat32_unlink(fuse_req_t req, fuse_ino_t parent, const char *name) {
-    auto parent_result = filesystem.getDir(parent);
-    assert(parent_result.has_value());
-    auto parent_dir = parent_result.value();
+    auto parent_dir = getExistDir(parent);
     auto child_result = parent_dir->lookupFile(name);
     if (!child_result.has_value()) {
         fuse_reply_err(req, ENOENT);
@@ -152,9 +150,7 @@ static void fat32_unlink(fuse_req_t req, fuse_ino_t parent, const char *name) {
 }
 
 static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
-    auto parent_result = filesystem.getDir(parent);
-    assert(parent_result.has_value());
-    auto parent_dir = parent_result.value();
+    auto parent_dir = getExistDir(parent);
     auto child_result = parent_dir->lookupFile(name);
     if (!child_result.has_value()) {
         fuse_reply_err(req, ENOENT);
@@ -170,9 +166,10 @@ static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
     fuse_reply_err(req, 0);
 }
 
+// for simplicity, ignores when `flags` is not empty
 static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
                          fuse_ino_t newparent, const char *newname, unsigned int flags) {
-    if (flags) { // for simplicity, ignores when `flags` is not empty
+    if (flags) {
         fuse_reply_err(req, EINVAL);
     }
 
