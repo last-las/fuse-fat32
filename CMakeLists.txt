@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(stupid-fat32)
 set(CMAKE_CXX_STANDARD 17)
+# solve the "fatal error: missing config.h"
 
 add_compile_options(-DFUSE_USE_VERSION=312 -DFUSERMOUNT_DIR="tmp")
 add_library(fuse STATIC

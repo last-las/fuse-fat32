@@ -207,8 +207,9 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
 }
 
 static void fat32_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO: Explicitly create a fs::File object refer to ino, store it in global variable filesystem,
-    //  and remove it in release method.
+    auto target = getExistFile(ino);
+    filesystem.markFileAsOpened(target);
+    fuse_reply_open(req, fi);
 }
 
 static void fat32_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
@@ -267,6 +268,7 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .unlink = fat32_unlink,
         .rmdir = fat32_rmdir,
         .rename = fat32_rename,
+        .open = fat32_open,
 };
 
 int main(int argc, char *argv[]) {

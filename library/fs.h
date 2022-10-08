@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include "fat32.h"
 
 namespace fs {
@@ -37,6 +38,8 @@ namespace fs {
         // modify parent_sec_, entry_num_ and filename to target's value
         void renameTo(shared_ptr<File> target) noexcept {}
 
+        virtual ~File() = default;
+
     private:
         u32 parent_sec_;
         u32 entry_num_;
@@ -69,6 +72,14 @@ namespace fs {
         optional<shared_ptr<File>> getFile(u64 ino) noexcept;
 
         optional<shared_ptr<Directory>> getDir(u64 ino) noexcept;
+
+        void markFileAsOpened(shared_ptr<File> file) noexcept;
+
+        void markFileAsClosed(shared_ptr<File> file) noexcept;
+
+    private:
+        util::LRUCache<u64, File> cached_lookup_files_{20};
+        std::unordered_map<u64, File> cached_open_files_;
     };
 
 } // namespace fs

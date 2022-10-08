@@ -40,4 +40,8 @@ namespace fs {
     std::optional<shared_ptr<File>> FAT32fs::getFile(u64 ino) noexcept {}
 
     std::optional<shared_ptr<Directory>> FAT32fs::getDir(u64 ino) noexcept {}
+
+    void FAT32fs::markFileAsOpened(shared_ptr<fs::File> file) noexcept {}
+
+    void FAT32fs::markFileAsClosed(shared_ptr<fs::File> file) noexcept {}
 }
