@@ -18,7 +18,7 @@ namespace util {
         typedef shared_ptr<key_t> key_ptr;
         typedef shared_ptr<value_t> value_ptr;
     public:
-        explicit LRUCache(u32 max_size): max_size_{max_size} {}
+        explicit LRUCache(u32 max_size) noexcept: max_size_{max_size} {}
 
         void put(key_ptr key, value_ptr value) noexcept {}
 
@@ -26,7 +26,7 @@ namespace util {
 
     private:
         u32 max_size_;
-        std::unordered_map<key_ptr, std::pair<u32,value_ptr>> caches_map_;
+        std::unordered_map<key_ptr, std::pair<u32, value_ptr>> caches_map_;
         std::list<key_ptr> fifo_queue_;
     };
 } // namespace util

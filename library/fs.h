@@ -63,6 +63,9 @@ namespace fs {
 
     class FAT32fs {
     public:
+        // TODO: make the constructor private.
+        explicit FAT32fs() noexcept = default;
+
         static FAT32fs from(device::Device *device) noexcept;
 
         static std::optional<FAT32fs> mkfs(device::Device *device) noexcept;
@@ -79,7 +82,7 @@ namespace fs {
 
     private:
         util::LRUCache<u64, File> cached_lookup_files_{20};
-        std::unordered_map<u64, File> cached_open_files_;
+        std::unordered_map<u64, shared_ptr<File>> cached_open_files_;
     };
 
 } // namespace fs

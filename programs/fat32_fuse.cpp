@@ -273,6 +273,6 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
 
 int main(int argc, char *argv[]) {
     device::LinuxFileDevice dev = device::LinuxFileDevice("/dev/sdb1", 512);
-    filesystem = fs::FAT32fs::from(&dev);
+    auto fs = fs::FAT32fs::from(&dev);
     printf("hello world! --fuse\n");
 }

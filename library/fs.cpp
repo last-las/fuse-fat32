@@ -30,7 +30,9 @@ namespace fs {
     /**
      * Filesystem
      * */
-    FAT32fs FAT32fs::from(device::Device* device) noexcept {}
+    FAT32fs FAT32fs::from(device::Device* device) noexcept {
+        return FAT32fs();
+    }
 
     std::optional<FAT32fs> FAT32fs::mkfs(device::Device* device) noexcept {}
 
