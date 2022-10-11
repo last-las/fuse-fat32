@@ -4,9 +4,9 @@ namespace fs {
     /**
      * File
      * */
-    u64 File::read(u8 *buf, u64 size) noexcept {}
+    u64 File::read(byte *buf, u64 size, u64 offset) noexcept {}
 
-    u64 File::write(const u8 *buf, u64 size) noexcept {}
+    u64 File::write(const byte *buf, u64 size, u64 offset) noexcept {}
 
     void File::sync() noexcept {}
 

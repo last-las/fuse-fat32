@@ -8,6 +8,7 @@ typedef unsigned long long u64;
 typedef unsigned int u32;
 typedef unsigned short u16;
 typedef unsigned char u8;
+typedef char byte;
 typedef u32 size;
 
 namespace util {

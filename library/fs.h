@@ -13,9 +13,9 @@ namespace fs {
 
     class File {
     public:
-        u64 read(u8 *buf, u64 size) noexcept;
+        u64 read(byte *buf, u64 size, u64 offset) noexcept;
 
-        u64 write(const u8 *buf, u64 size) noexcept;
+        u64 write(const byte *buf, u64 size, u64 offset) noexcept;
 
         void sync() noexcept;
 

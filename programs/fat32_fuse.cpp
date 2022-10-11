@@ -5,6 +5,7 @@
 #include <optional>
 #include <sys/types.h>
 #include "utime.h"
+#include <vector>
 #include "fuse_lowlevel.h"
 #include "fs.h"
 
@@ -213,12 +214,19 @@ static void fat32_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi
 }
 
 static void fat32_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
-    // TODO
+    // TODO: optimize here... this seems a little dumb
+    auto file = getExistFile(ino);
+    byte *buf = new byte[size];
+    auto cnt = file->read(buf, size, offset);
+    fuse_reply_buf(req, buf, cnt);
+    delete[] buf;
 }
 
 static void fat32_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
                         size_t size, off_t off, struct fuse_file_info *fi) {
-    // TODO
+    auto file = getExistFile(ino);
+    auto cnt = file->write(buf, size, off);
+    fuse_reply_write(req, cnt);
 }
 
 static void fat32_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
@@ -283,6 +291,8 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .rmdir = fat32_rmdir,
         .rename = fat32_rename,
         .open = fat32_open,
+        .read = fat32_read,
+        .write = fat32_write,
         .release = fat32_release,
         .opendir = fat32_opendir,
         .releasedir = fat32_releasedir,
