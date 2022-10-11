@@ -76,9 +76,15 @@ namespace fs {
 
         optional<shared_ptr<Directory>> getDir(u64 ino) noexcept;
 
-        void markFileAsOpened(shared_ptr<File> file) noexcept;
+        /**
+         * Get file from `cached_lookup_files_`, and store it in `cached_open_files`.
+         * */
+        optional<shared_ptr<File>> openFile(u64 ino) noexcept;
 
-        void markFileAsClosed(shared_ptr<File> file) noexcept;
+        /**
+         * Remove file from `cached_open_files_`.
+         * */
+        void closeFile(u64 ino) noexcept;
 
     private:
         util::LRUCache<u64, File> cached_lookup_files_{20};

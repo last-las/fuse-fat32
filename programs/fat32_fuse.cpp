@@ -188,7 +188,7 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
             if (!new_file->isDir()) {
                 fuse_reply_err(req, ENOTDIR);
                 return;
-            } else if(!std::dynamic_pointer_cast<fs::Directory>(new_file)->isEmpty()) {
+            } else if (!std::dynamic_pointer_cast<fs::Directory>(new_file)->isEmpty()) {
                 fuse_reply_err(req, ENOTEMPTY);
                 return;
             }
@@ -207,8 +207,8 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
 }
 
 static void fat32_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    auto target = getExistFile(ino);
-    filesystem.markFileAsOpened(target);
+    auto result = filesystem.openFile(ino);
+    assert(result.has_value());
     fuse_reply_open(req, fi);
 }
 
@@ -222,8 +222,10 @@ static void fat32_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
 }
 
 static void fat32_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO: Release is called when FUSE is completely done with a file;
+    // Release is called when FUSE is completely done with a file;
     //  at that point, you can free up any temporarily allocated data structures.
+    filesystem.closeFile(ino);
+    fuse_reply_err(req, 0);
 }
 
 static void fat32_fsync(fuse_req_t req, fuse_ino_t ino, int datasync, struct fuse_file_info *fi) {
@@ -231,7 +233,13 @@ static void fat32_fsync(fuse_req_t req, fuse_ino_t ino, int datasync, struct fus
 }
 
 static void fat32_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO
+    auto target = getExistFile(ino);
+    if (!target->isDir()) {
+        fuse_reply_err(req, ENOTDIR);
+        return;
+    }
+    assert(filesystem.openFile(ino).has_value());
+    fuse_reply_open(req, fi);
 }
 
 static void fat32_readdir(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
@@ -239,7 +247,13 @@ static void fat32_readdir(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off
 }
 
 static void fat32_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    // TODO: The same as `fat32_release`
+    auto target = getExistFile(ino);
+    if (!target->isDir()) {
+        fuse_reply_err(req, ENOTDIR);
+        return;
+    }
+    filesystem.closeFile(ino);
+    fuse_reply_err(req, 0);
 }
 
 static void fat32_fsyncdir(fuse_req_t req, fuse_ino_t ino, int datasync, struct fuse_file_info *fi) {
@@ -269,9 +283,13 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .rmdir = fat32_rmdir,
         .rename = fat32_rename,
         .open = fat32_open,
+        .release = fat32_release,
+        .opendir = fat32_opendir,
+        .releasedir = fat32_releasedir,
 };
 
 int main(int argc, char *argv[]) {
+    // TODO: enable -o default_permissions
     device::LinuxFileDevice dev = device::LinuxFileDevice("/dev/sdb1", 512);
     auto fs = fs::FAT32fs::from(&dev);
     printf("hello world! --fuse\n");
