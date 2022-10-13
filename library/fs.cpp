@@ -8,7 +8,7 @@ namespace fs {
 
     u64 File::write(const byte *buf, u64 size, u64 offset) noexcept {}
 
-    void File::sync() noexcept {}
+    void File::sync(bool sync_meta) noexcept {}
 
     bool File::truncate(u32 length) noexcept {}
 
@@ -23,7 +23,8 @@ namespace fs {
 
     optional<shared_ptr<File>> Directory::lookupFile(const char *name) noexcept {}
 
-    optional<shared_ptr<Directory>> Directory::lookupDir(const char *name) noexcept {}
+    optional<shared_ptr<File>> Directory::lookupFileByIndex(u32 index) noexcept {}
+
 
     bool Directory::isEmpty() noexcept {}
 

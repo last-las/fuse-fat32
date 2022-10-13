@@ -13,11 +13,17 @@ namespace fs {
 
     class File {
     public:
+
         u64 read(byte *buf, u64 size, u64 offset) noexcept;
+
+        /**
+         * Return a null-terminated filename pointer.
+         * */
+        const char* name() noexcept {}
 
         u64 write(const byte *buf, u64 size, u64 offset) noexcept;
 
-        void sync() noexcept;
+        void sync(bool sync_meta) noexcept;
 
         bool truncate(u32 length) noexcept;
 
@@ -56,7 +62,13 @@ namespace fs {
 
         optional<shared_ptr<File>> lookupFile(const char *name) noexcept;
 
-        optional<shared_ptr<Directory>> lookupDir(const char *name) noexcept;
+        /**
+         * Return the file ptr, or none if `index` is out of bound.
+         * Usually this function is used to traverse the files in this directory.
+         *
+         * @param index the order of files in current directory
+         * */
+        optional<shared_ptr<File>> lookupFileByIndex(u32 index) noexcept;
 
         bool isEmpty() noexcept;
     };

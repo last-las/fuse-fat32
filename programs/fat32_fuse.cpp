@@ -237,7 +237,9 @@ static void fat32_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info 
 }
 
 static void fat32_fsync(fuse_req_t req, fuse_ino_t ino, int datasync, struct fuse_file_info *fi) {
-    // TODO: write the file contents back to disk
+    auto file = getExistFile(ino);
+    file->sync(datasync);
+    fuse_reply_err(req, 0);
 }
 
 static void fat32_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
@@ -250,8 +252,53 @@ static void fat32_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info 
     fuse_reply_open(req, fi);
 }
 
+static void fat32_do_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
+                             off_t offset, struct fuse_file_info *fi, bool plus) {
+    auto file = getExistFile(ino);
+    if (!file->isDir()) { // do we really need this?
+        fuse_reply_err(req, ENOTDIR);
+        return;
+    }
+    auto dir = std::dynamic_pointer_cast<fs::Directory>(file);
+    byte *buf = new byte[size];
+    byte *p = buf;
+    u32 rem = size;
+    while (true) {
+        auto ret = dir->lookupFileByIndex(offset);
+        if (!ret.has_value()) {
+            break;
+        }
+        auto sub_file = ret.value();
+        auto state = read_file_stat(sub_file);
+
+        offset += 1;
+        u64 entsize;
+        if (plus) { // might be wrong..
+            struct fuse_entry_param e{};
+            e.attr = state;
+            e.ino = sub_file->ino();
+            entsize = fuse_add_direntry_plus(req, p, rem, sub_file->name(), &e, offset);
+        } else {
+            entsize = fuse_add_direntry(req, p, rem, sub_file->name(), &state, offset);
+        }
+        if (entsize > rem) { //does this necessary?
+            break;
+        }
+        p += entsize;
+        rem -= entsize;
+    }
+
+    fuse_reply_buf(req, buf, size - rem);
+    delete[] buf;
+}
+
+
 static void fat32_readdir(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
-    // TODO
+    fat32_do_readdir(req, ino, size, offset, fi,false);
+}
+
+static void fat32_readdir_plus(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
+    fat32_do_readdir(req, ino, size, offset, fi, true);
 }
 
 static void fat32_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
@@ -265,7 +312,13 @@ static void fat32_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_in
 }
 
 static void fat32_fsyncdir(fuse_req_t req, fuse_ino_t ino, int datasync, struct fuse_file_info *fi) {
-    // TODO: write the directory contents back to disk
+    auto file = getExistFile(ino);
+    if (!file->isDir()) {
+        fuse_reply_err(req, ENOTDIR);
+        return;
+    }
+    file->sync(datasync);
+    fuse_reply_err(req, 0);
 }
 
 static void fat32_statfs(fuse_req_t req, fuse_ino_t ino) {
@@ -294,8 +347,12 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .read = fat32_read,
         .write = fat32_write,
         .release = fat32_release,
+        .fsync = fat32_fsync,
         .opendir = fat32_opendir,
+        .readdir = fat32_readdir,
         .releasedir = fat32_releasedir,
+        .fsyncdir = fat32_fsyncdir,
+        .readdirplus = fat32_readdir_plus,
 };
 
 int main(int argc, char *argv[]) {
