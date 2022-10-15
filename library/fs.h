@@ -54,6 +54,7 @@ namespace fs {
 
     class Directory : public File {
     public:
+        // TODO: errno should also be returned.
         shared_ptr<File> crtFile(const char *name) noexcept;
 
         shared_ptr<Directory> crtDir(const char *name) noexcept;

@@ -25,15 +25,19 @@ std::shared_ptr<fs::File> getExistFile(fuse_ino_t ino) {
     return result.value();
 }
 
-struct stat read_file_stat(std::shared_ptr<fs::File> file) {
+struct stat readFileStat(std::shared_ptr<fs::File> file) {
     // TODO
 }
 
-std::optional<fat32::FatTimeStamp2> unix_to_dos_ts(struct timespec unix_ts) {
+std::optional<fat32::FatTimeStamp2> unix2DosTs(struct timespec unix_ts) {
     // TODO
 }
 
-fat32::FatTimeStamp2 get_cur_ts() {
+fat32::FatTimeStamp2 getCurTs() {
+    // TODO
+}
+
+struct statfs getStatfs() {
     // TODO
 }
 
@@ -51,7 +55,7 @@ static void fat32_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
     if (result.has_value()) {
         auto file = result.value();
         struct fuse_entry_param e{};
-        e.attr = read_file_stat(file);
+        e.attr = readFileStat(file);
         e.ino = file->ino();
         // might need to do something about e.attr_timeout, e.entry_timeout
         fuse_reply_entry(req, &e);
@@ -66,7 +70,7 @@ static void fat32_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup) {
 
 static void fat32_getattr(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
     auto file = getExistFile(ino);
-    auto stat = read_file_stat(file);
+    auto stat = readFileStat(file);
     fuse_reply_attr(req, &stat, 1);
 }
 
@@ -84,7 +88,7 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
         }
     }
     if (valid & FUSE_SET_ATTR_CTIME) {
-        auto ts_result = unix_to_dos_ts(attr->st_ctim);
+        auto ts_result = unix2DosTs(attr->st_ctim);
         if (!ts_result.has_value()) {
             fuse_reply_err(req, EINVAL);
             return;
@@ -95,9 +99,9 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
     if (valid & FUSE_SET_ATTR_ATIME) {
         fat32::FatTimeStamp2 ts2{};
         if (valid & FUSE_SET_ATTR_ATIME_NOW) {
-            ts2 = get_cur_ts();
+            ts2 = getCurTs();
         } else {
-            auto ts_result = unix_to_dos_ts(attr->st_atim);
+            auto ts_result = unix2DosTs(attr->st_atim);
             if (!ts_result.has_value()) {
                 fuse_reply_err(req, EINVAL);
                 return;
@@ -109,9 +113,9 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
     if (valid & FUSE_SET_ATTR_MTIME) {
         fat32::FatTimeStamp2 ts2{};
         if (valid & FUSE_SET_ATTR_MTIME_NOW) {
-            ts2 = get_cur_ts();
+            ts2 = getCurTs();
         } else {
-            auto ts_result = unix_to_dos_ts(attr->st_mtim);
+            auto ts_result = unix2DosTs(attr->st_mtim);
             if (!ts_result.has_value()) {
                 fuse_reply_err(req, EINVAL);
                 return;
@@ -128,7 +132,7 @@ static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mod
     auto parent_dir = getExistDir(parent);
     auto child_dir = parent_dir->crtDir(name);
     struct fuse_entry_param e{};
-    e.attr = read_file_stat(child_dir);
+    e.attr = readFileStat(child_dir);
     e.ino = child_dir->ino();
     fuse_reply_entry(req, &e);
 }
@@ -269,7 +273,7 @@ static void fat32_do_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
             break;
         }
         auto sub_file = ret.value();
-        auto state = read_file_stat(sub_file);
+        auto state = readFileStat(sub_file);
 
         offset += 1;
         u64 entsize;
@@ -321,16 +325,30 @@ static void fat32_fsyncdir(fuse_req_t req, fuse_ino_t ino, int datasync, struct 
     fuse_reply_err(req, 0);
 }
 
+// ignore `ino`
 static void fat32_statfs(fuse_req_t req, fuse_ino_t ino) {
-    // TODO
+    struct statfs statfs_ = getStatfs();
+    fuse_reply_statfs(req, &statfs_);
 }
 
+// we will only create regular file.
 static void fat32_create(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode, struct fuse_file_info *fi) {
-    // TODO
-}
+    if ((mode & S_IFSOCK) | (mode & S_IFLNK) | (mode & S_IFBLK) | (mode & S_IFDIR) | (mode & S_IFCHR) | (S_IFIFO)) {
+        fuse_reply_err(req, EPERM);
+        return;
+    }
 
-static void fat32_forget_multi(fuse_req_t req, size_t count, struct fuse_forget_data *forgets) {
-    // TODO
+    auto parent_dir = getExistDir(parent);
+    if (parent_dir->lookupFile(name).has_value()) {
+        fuse_reply_err(req, EEXIST);
+        return;
+    }
+
+    auto child_file = parent_dir->crtFile(name);
+    struct fuse_entry_param e{};
+    e.attr = readFileStat(child_file);
+    e.ino = child_file->ino();
+    fuse_reply_create(req, &e, fi);
 }
 
 static const struct fuse_lowlevel_ops fat32_ll_oper = {
@@ -352,6 +370,8 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .readdir = fat32_readdir,
         .releasedir = fat32_releasedir,
         .fsyncdir = fat32_fsyncdir,
+        .statfs = fat32_statfs,
+        .create = fat32_create,
         .readdirplus = fat32_readdir_plus,
 };
 
