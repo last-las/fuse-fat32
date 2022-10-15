@@ -4,6 +4,7 @@
 #include <cstring>
 #include <optional>
 #include <sys/types.h>
+#include <sys/vfs.h>
 #include "utime.h"
 #include <vector>
 #include "fuse_lowlevel.h"
@@ -37,7 +38,7 @@ fat32::FatTimeStamp2 getCurTs() {
     // TODO
 }
 
-struct statfs getStatfs() {
+struct statvfs getStatfs() {
     // TODO
 }
 
@@ -327,8 +328,8 @@ static void fat32_fsyncdir(fuse_req_t req, fuse_ino_t ino, int datasync, struct 
 
 // ignore `ino`
 static void fat32_statfs(fuse_req_t req, fuse_ino_t ino) {
-    struct statfs statfs_ = getStatfs();
-    fuse_reply_statfs(req, &statfs_);
+    struct statvfs stat_vfs = getStatfs();
+    fuse_reply_statfs(req, &stat_vfs);
 }
 
 // we will only create regular file.
