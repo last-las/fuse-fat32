@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <ctime>
 #include <fcntl.h>
+#include <cstring>
 #include <cstdio>
 
 #include "gtest/gtest.h"
@@ -12,14 +13,19 @@
  *
  * Google Test does not run tests in parallel, so don't worry about `errno` being overwritten by other threads.
  * */
-
+#define SEC_SIZE (0x200 * 0x8)
+#define BUF_SIZE (SEC_SIZE * 4)
+char buffer[BUF_SIZE];
+const char test_dir[] = "test_dir";
 const char non_exist_file[] = "non_exist_file";
 const char short_name_file[] = "short.txt";
+const char long_name_file[] = "longest_name_in_the_world.txt";
 const char non_empty_file[] = "content.txt";
 const char tmp_file[] = "tmp.txt"; // dynamic used and deleted by test cases
+const char non_empty_dir_file1[] = "non_empty_dir/sub_file1.txt";
 const char tmp_dir[] = "tmp";
-const char long_name_file[] = "longest_name_in_the_world.txt";
 const char non_exist_dir[] = "non_exist_dir";
+const char non_empty_dir[] = "non_empty_dir";
 const char short_name_dir[] = "short_dir";
 std::vector<std::string> multiple_path{
         "sub_dir1",
@@ -70,6 +76,8 @@ public:
         crtFileOrExist(long_name_file);
         crtFileOrExist(non_empty_file);
         crtDirOrExist(short_name_dir);
+        crtDirOrExist(non_empty_dir);
+        crtFileOrExist(non_empty_dir_file1);
     }
 
     void TearDown() override {
@@ -77,6 +85,8 @@ public:
         rmFile(long_name_file);
         rmFile(non_empty_file);
         rmDir(short_name_dir);
+        rmFile(non_empty_dir_file1);
+        rmDir(non_empty_dir);
     }
 };
 
@@ -297,7 +307,7 @@ TEST(RenameTest, SrcFileDstFile) {
 TEST(RenameTest, SrcFileDstDir) {
     create_file(tmp_file);
     create_dir(tmp_dir);
-    errno = -1;
+    errno = 0;
     ASSERT_EQ(rename(tmp_file, tmp_dir), -1);
     ASSERT_EQ(errno, EISDIR);
     rm_file(tmp_file);
@@ -305,24 +315,104 @@ TEST(RenameTest, SrcFileDstDir) {
 }
 
 TEST(RenameTest, SrcDirDstFile) {
+    create_dir(tmp_dir);
+    create_file(tmp_file);
+    errno = 0;
+    ASSERT_EQ(rename(tmp_dir, tmp_file), -1);
+    ASSERT_EQ(errno, ENOTDIR);
+    rm_dir(tmp_dir);
+    rm_file(tmp_file);
 }
 
 TEST(RenameTest, SrcDirDstDirEmpty) {
+    create_dir(tmp_dir);
+    assert_dir_non_exist(non_exist_dir);
+    ASSERT_EQ(rename(tmp_dir, non_exist_dir), 0);
+    assert_dir_non_exist(tmp_dir);
+    assert_dir_exist(non_exist_dir);
+
+    // recover
+    rm_dir(non_exist_dir);
 }
 
 TEST(RenameTest, SrcDirDstDirNonEmpty) {
+    errno = 0;
+    ASSERT_EQ(rename(short_name_dir, non_empty_dir), -1);
+    ASSERT_EQ(errno, ENOTEMPTY);
 }
 
 TEST(RenameTest, SubDir) {
+    ASSERT_EQ(rename(non_empty_dir_file1, tmp_file), 0);
+
+    // recover
+    ASSERT_EQ(rename(tmp_file, non_empty_dir_file1), 0);
+    assert_file_non_exist(tmp_file);
 }
 
 TEST(RWTest, LessThanOneClus) {
+    // prepare a buffer
+    int sz = SEC_SIZE / 2;
+    char byte = 0x34;
+    memset(buffer, byte, sz);
+
+    // write to file
+    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
+    ASSERT_GT(fd, 0);
+    ssize_t cnt = write(fd, buffer, sz);
+    ASSERT_EQ(cnt, sz);
+    ASSERT_EQ(close(fd), 0);
+
+    // clear buffer first
+    memset(buffer, 0, sz);
+
+    // read from file
+    fd = open(tmp_file, O_RDONLY);
+    ASSERT_GT(fd, 0);
+    cnt = read(fd, buffer, sz);
+    ASSERT_EQ(cnt, sz);
+    for (int i = 0; i < cnt; ++i) {
+        ASSERT_EQ(buffer[i], byte);
+    }
+    ASSERT_EQ(close(fd), 0);
+
+    // recover
+    rm_file(tmp_file);
 }
 
 TEST(RWTest, MoreThanOneClus) {
+    // prepare a buffer
+    int sz = BUF_SIZE;
+    char byte = 0x34;
+    memset(buffer, byte, sz);
+
+    // write to file
+    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
+    ASSERT_GT(fd, 0);
+    ssize_t cnt = write(fd, buffer, sz);
+    ASSERT_EQ(cnt, sz);
+    ASSERT_EQ(close(fd), 0);
+
+    // clear buffer first
+    memset(buffer, 0, sz);
+
+    // read from file
+    fd = open(tmp_file, O_RDONLY);
+    ASSERT_GT(fd, 0);
+    cnt = read(fd, buffer, sz);
+    ASSERT_EQ(cnt, sz);
+    for (int i = 0; i < cnt; ++i) {
+        ASSERT_EQ(buffer[i], byte);
+    }
+    ASSERT_EQ(close(fd), 0);
+
+    // recover
+    rm_file(tmp_file);
 }
 
 TEST(RWTest, MoreThanFileSz) {
+}
+
+TEST(RWTest, MultipleTimes) {
 }
 
 TEST(ReadDirTest, ListDir) {
