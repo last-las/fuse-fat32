@@ -1,6 +1,7 @@
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
-#include <sys/time.h>
+#include <sys/vfs.h>
 #include <ctime>
 #include <fcntl.h>
 #include <cstring>
@@ -23,6 +24,8 @@ const char long_name_file[] = "longest_name_in_the_world.txt";
 const char non_empty_file[] = "content.txt";
 const char tmp_file[] = "tmp.txt"; // dynamic used and deleted by test cases
 const char non_empty_dir_file1[] = "non_empty_dir/sub_file1.txt";
+const char non_empty_dir_file2[] = "non_empty_dir/sub_file2.txt";
+const char non_empty_dir_dir[] = "non_empty_dir/sub_dir";
 const char tmp_dir[] = "tmp";
 const char non_exist_dir[] = "non_exist_dir";
 const char non_empty_dir[] = "non_empty_dir";
@@ -78,6 +81,8 @@ public:
         crtDirOrExist(short_name_dir);
         crtDirOrExist(non_empty_dir);
         crtFileOrExist(non_empty_dir_file1);
+        crtFileOrExist(non_empty_dir_file2);
+        crtDirOrExist(non_empty_dir_dir);
     }
 
     void TearDown() override {
@@ -86,6 +91,8 @@ public:
         rmFile(non_empty_file);
         rmDir(short_name_dir);
         rmFile(non_empty_dir_file1);
+        rmFile(non_empty_dir_file2);
+        rmDir(non_empty_dir_dir);
         rmDir(non_empty_dir);
     }
 };
@@ -410,15 +417,95 @@ TEST(RWTest, MoreThanOneClus) {
 }
 
 TEST(RWTest, MoreThanFileSz) {
+    // prepare a buffer
+    int sz = SEC_SIZE / 2;
+    char byte = 0x34;
+    memset(buffer, byte, sz);
+
+    // write to file
+    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
+    ASSERT_GT(fd, 0);
+    ssize_t cnt = write(fd, buffer, sz);
+    ASSERT_EQ(cnt, sz);
+    ASSERT_EQ(close(fd), 0);
+
+    // read from file
+    int big_sz = sz * 3;
+    fd = open(tmp_file, O_RDONLY);
+    ASSERT_GT(fd, 0);
+    cnt = read(fd, buffer, big_sz);
+    ASSERT_EQ(cnt, sz);
+
+    // recover
+    rm_file(tmp_file);
 }
 
 TEST(RWTest, MultipleTimes) {
+    // prepare a buffer
+    int sz = SEC_SIZE / 2;
+    char byte = 0x34;
+
+    // write to file
+    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
+    ASSERT_GT(fd, 0);
+    ssize_t cnt;
+    char tmp_byte = byte;
+    for (int i = 0; i < sz; ++i) {
+        cnt = write(fd, &tmp_byte, 1);
+        ASSERT_EQ(cnt, 1);
+    }
+    ASSERT_EQ(close(fd), 0);
+
+    // read from file
+    fd = open(tmp_file, O_RDONLY);
+    ASSERT_GT(fd, 0);
+    for (int i = 0; i < sz; ++i) {
+        tmp_byte = 0;
+        cnt = read(fd, &tmp_byte, 1);
+        ASSERT_EQ(cnt, 1);
+        ASSERT_EQ(tmp_byte, byte);
+    }
+    ASSERT_EQ(close(fd), 0);
+
+    // recover
+    rm_file(tmp_file);
 }
 
+
+struct linux_dirent {
+    long d_ino;
+    off_t d_off;
+    unsigned short d_reclen;
+    char d_name[];
+};
+
 TEST(ReadDirTest, ListDir) {
+    int dir_fd = open(non_empty_dir, O_DIRECTORY);
+    ASSERT_GT(dir_fd, 0);
+
+    struct linux_dirent *d;
+    int nread = syscall(SYS_getdents, dir_fd, buffer, BUF_SIZE);
+    ASSERT_GT(nread, 0);
+    std::vector<std::string> files;
+    for (int bpos = 0; bpos < nread;) {
+        d = (struct linux_dirent *)(buffer + bpos);
+        files.emplace_back(d->d_name);
+        bpos += d->d_reclen;
+    }
+    std::sort(files.begin(), files.end());
+    ASSERT_STREQ(files[0].c_str(), ".");
+    ASSERT_STREQ(files[1].c_str(), "..");
+    ASSERT_STREQ(files[2].c_str(), "sub_dir");
+    ASSERT_STREQ(files[3].c_str(), "sub_file1.txt");
+    ASSERT_STREQ(files[4].c_str(), "sub_file2.txt");
+
+    ASSERT_EQ(close(dir_fd), 0);
 }
 
 TEST(StatfsTest, Statfs) {
+    struct statfs statfs_{};
+    ASSERT_EQ(statfs("./", &statfs_), 0);
+    // todo
 }
 
 TEST(CrtFileTest, SpecialFile) {
