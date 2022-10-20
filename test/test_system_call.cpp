@@ -25,11 +25,15 @@ const char non_empty_file[] = "content.txt";
 const char tmp_file[] = "tmp.txt"; // dynamic used and deleted by test cases
 const char non_empty_dir_file1[] = "non_empty_dir/sub_file1.txt";
 const char non_empty_dir_file2[] = "non_empty_dir/sub_file2.txt";
+const char invalid_fat32_names[9][20] = {
+        "abc\\", "abc/", "abc:", "abc*", "abc?", "abc\"", "abc<", "abc>", "abc|"
+};
 const char non_empty_dir_dir[] = "non_empty_dir/sub_dir";
 const char tmp_dir[] = "tmp";
 const char non_exist_dir[] = "non_exist_dir";
 const char non_empty_dir[] = "non_empty_dir";
 const char short_name_dir[] = "short_dir";
+// TODO: use char[][] instead.
 std::vector<std::string> multiple_path{
         "sub_dir1",
         "sub_dir1/sub_dir2",
@@ -488,7 +492,7 @@ TEST(ReadDirTest, ListDir) {
     ASSERT_GT(nread, 0);
     std::vector<std::string> files;
     for (int bpos = 0; bpos < nread;) {
-        d = (struct linux_dirent *)(buffer + bpos);
+        d = (struct linux_dirent *) (buffer + bpos);
         files.emplace_back(d->d_name);
         bpos += d->d_reclen;
     }
@@ -502,22 +506,80 @@ TEST(ReadDirTest, ListDir) {
     ASSERT_EQ(close(dir_fd), 0);
 }
 
+// This test will be passed only under fuse-fat32
 TEST(StatfsTest, Statfs) {
-    struct statfs statfs_{};
-    ASSERT_EQ(statfs("./", &statfs_), 0);
-    // todo
+    struct statfs stat{};
+    ASSERT_EQ(statfs("./", &stat), 0);
+    ASSERT_EQ(stat.f_type, 0x4d44); // MSDOS_SUPER_MAGIC
+    ASSERT_GT(stat.f_bsize, 0);
+    ASSERT_GT(stat.f_blocks, 0);
+    ASSERT_GT(stat.f_bfree, 0);
+    ASSERT_GT(stat.f_bavail, 0);
+    ASSERT_EQ(stat.f_files, 0);
+    ASSERT_EQ(stat.f_ffree, 0);
+    // TODO: ASSERT_GT(stat.f_namelen, 0);
 }
 
+// This test will be passed only under fuse-fat32
+// There seems to be a bug here...
 TEST(CrtFileTest, SpecialFile) {
+    errno = 0;
+    int fd = creat(tmp_file, S_IFCHR);
+    EXPECT_EQ(fd, -1);
+    EXPECT_EQ(errno, EPERM);
+
+    // recover
+    if (fd > 0) {
+        ASSERT_EQ(close(fd), 0);
+        rm_file(tmp_file);
+    }
 }
 
-TEST(CrtFileTest, RegularFile) {
-}
-
+// This test will be passed only under fuse-fat32
 TEST(CrtFileTest, ConstantMode) {
+    int fd = creat(tmp_file, S_IFREG);
+    EXPECT_GT(fd, 0);
+    struct stat stat_{};
+    EXPECT_EQ(fstat(fd, &stat_), 0);
+    EXPECT_EQ(stat_.st_mode & 0777, 0755);
+
+    EXPECT_EQ(close(fd), 0);
+    rm_file(tmp_file);
 }
 
 TEST(CrtFileTest, IllegalFatChr) {
+    std::vector<int> fd_vec;
+    for (int i = 0; i < 9; ++i) {
+        errno = 0;
+        int fd = creat(invalid_fat32_names[i], S_IFREG);
+        fd_vec.push_back(fd);
+        EXPECT_EQ(fd, -1);
+        EXPECT_EQ(errno, EINVAL);
+    }
+
+    // recover
+    if (fd_vec[0] > 0) {
+        for (const auto &fd: fd_vec) {
+            EXPECT_EQ(close(fd), 0);
+        }
+
+        for (int i = 0; i < 9; ++i) {
+            rm_file(invalid_fat32_names[i]);
+        }
+    }
+}
+
+// This test will be passed only under fuse-fat32
+// require privilege to run `mknod`, otherwise this case will always be passed
+TEST(MknodTest, SpecialFile) {
+    errno = 0;
+    int ret = mknod(tmp_file, S_IFCHR, 12345);
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(errno, EPERM);
+
+    if (ret == 0) {
+        rm_file(tmp_file);
+    }
 }
 
 // todo:
