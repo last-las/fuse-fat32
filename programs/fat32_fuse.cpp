@@ -10,18 +10,23 @@
 #include "fuse_lowlevel.h"
 #include "fs.h"
 
-fs::FAT32fs filesystem;
+std::optional<fs::FAT32fs> filesystem;
+
+fs::FAT32fs& getFilesystem() {
+    assert(filesystem.has_value());
+    return filesystem.value();
+}
 
 // If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::Directory> getExistDir(fuse_ino_t ino) {
-    auto result = filesystem.getDir(ino);
+    auto result =getFilesystem().getDir(ino);
     assert(result.has_value());
     return result.value();
 }
 
 // If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::File> getExistFile(fuse_ino_t ino) {
-    auto result = filesystem.getFile(ino);
+    auto result =getFilesystem().getFile(ino);
     assert(result.has_value());
     return result.value();
 }
@@ -213,7 +218,7 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
 }
 
 static void fat32_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    auto result = filesystem.openFile(ino);
+    auto result = getFilesystem().openFile(ino);
     assert(result.has_value());
     fuse_reply_open(req, fi);
 }
@@ -237,7 +242,7 @@ static void fat32_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
 static void fat32_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
     // Release is called when FUSE is completely done with a file;
     //  at that point, you can free up any temporarily allocated data structures.
-    filesystem.closeFile(ino);
+    getFilesystem().closeFile(ino);
     fuse_reply_err(req, 0);
 }
 
@@ -253,7 +258,7 @@ static void fat32_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info 
         fuse_reply_err(req, ENOTDIR);
         return;
     }
-    assert(filesystem.openFile(ino).has_value());
+    assert(getFilesystem().openFile(ino).has_value());
     fuse_reply_open(req, fi);
 }
 
@@ -312,7 +317,7 @@ static void fat32_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_in
         fuse_reply_err(req, ENOTDIR);
         return;
     }
-    filesystem.closeFile(ino);
+    getFilesystem().closeFile(ino);
     fuse_reply_err(req, 0);
 }
 
@@ -378,7 +383,8 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
 
 int main(int argc, char *argv[]) {
     // TODO: enable -o default_permissions
-    device::LinuxFileDevice dev = device::LinuxFileDevice("/dev/sdb1", 512);
-    auto fs = fs::FAT32fs::from(&dev);
+    device::LinuxFileDevice dev = device::LinuxFileDevice("/dev/sdb1");
+    device::CacheManager cache_mgr = device::CacheManager(dev);
+    auto fs = fs::FAT32fs::from(cache_mgr);
     printf("hello world! --fuse\n");
 }

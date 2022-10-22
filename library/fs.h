@@ -19,7 +19,7 @@ namespace fs {
         /**
          * Return a null-terminated filename pointer.
          * */
-        const char* name() noexcept {}
+        const char *name() noexcept {}
 
         u64 write(const byte *buf, u64 size, u64 offset) noexcept;
 
@@ -77,9 +77,9 @@ namespace fs {
     class FAT32fs {
     public:
         // TODO: make the constructor private.
-        explicit FAT32fs() noexcept = default;
+        explicit FAT32fs(device::Device &device) noexcept : device_{device} {}
 
-        static FAT32fs from(device::Device *device) noexcept;
+        static FAT32fs from(device::Device &device) noexcept;
 
         static std::optional<FAT32fs> mkfs(device::Device *device) noexcept;
 
@@ -100,7 +100,8 @@ namespace fs {
         void closeFile(u64 ino) noexcept;
 
     private:
-        util::LRUCache<u64, File> cached_lookup_files_{20};
+        device::Device &device_;
+        util::LRUCache<u64, shared_ptr<File>> cached_lookup_files_{20};
         std::unordered_map<u64, shared_ptr<File>> cached_open_files_;
     };
 

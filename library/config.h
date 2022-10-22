@@ -1,0 +1,9 @@
+#ifndef STUPID_FAT32_CONFIG_H
+#define STUPID_FAT32_CONFIG_H
+
+// device
+#define SECTOR_SIZE 4096
+
+#define CACHED_SECTOR_NUM 64
+
+#endif //STUPID_FAT32_CONFIG_H
