@@ -26,8 +26,8 @@ const char non_empty_file[] = "content.txt";
 const char tmp_file[] = "tmp.txt"; // dynamic used and deleted by test cases
 const char non_empty_dir_file1[] = "non_empty_dir/sub_file1.txt";
 const char non_empty_dir_file2[] = "non_empty_dir/sub_file2.txt";
-const char invalid_fat32_names[9][20] = {
-        "abc\\", "abc/", "abc:", "abc*", "abc?", "abc\"", "abc<", "abc>", "abc|"
+const char invalid_fat32_names[8][20] = {
+        "abc\\", "abc:", "abc*", "abc?", "abc\"", "abc<", "abc>", "abc|"
 };
 const char non_empty_dir_dir[] = "non_empty_dir/sub_dir";
 const char tmp_dir[] = "tmp";
@@ -140,16 +140,16 @@ void create_file(const char *file) {
 }
 
 void create_dir(const char *dir) {
-    ASSERT_EQ(mkdir(dir, 0755), 0);
+    ASSERT_EQ(mkdir(dir, 0755), 0) << strerror(errno);
 }
 
 void rm_file(const char *file) {
-    ASSERT_EQ(unlink(file), 0);
+    ASSERT_EQ(unlink(file), 0) << strerror(errno);
 
 }
 
 void rm_dir(const char *dir) {
-    ASSERT_EQ(rmdir(dir), 0);
+    ASSERT_EQ(rmdir(dir), 0) << strerror(errno);
 }
 
 TEST(OpenTest, NonExistFile) {
@@ -257,16 +257,19 @@ TEST(MkdirTest, CrtMultipleLevelDir) {
     }
 }
 
-// This test will be passed only under fuse-fat32
+// This test case only passes under fat32
 TEST(MkdirTest, ConstantMode) {
     ASSERT_EQ(mkdir(tmp_dir, 0741), 0);
     int fd = open(tmp_dir, O_DIRECTORY);
     struct stat fstat_{};
     ASSERT_EQ(fstat(fd, &fstat_), 0);
-    ASSERT_EQ(fstat_.st_mode & 0777, 0755);
+    EXPECT_EQ(fstat_.st_mode & 0777, 0755);
 
     // close
-    ASSERT_EQ(close(fd), 0);
+    EXPECT_EQ(close(fd), 0);
+
+    // recover
+    rm_dir(tmp_dir);
 }
 
 TEST(UnlinkTest, NonExist) {
@@ -289,7 +292,7 @@ TEST(UnlinkTest, RmDir) {
     ASSERT_EQ(rmdir(non_exist_dir), 0);
 }
 
-// This test will be passed only under fuse-fat32
+// This test case only passes under fat32
 TEST(RenameTest, IgnoreFlags) {
     errno = 0;
     int ret = renameat2(AT_FDCWD, short_name_file, AT_FDCWD, long_name_file, RENAME_EXCHANGE);
@@ -558,7 +561,7 @@ TEST(ReadDirTest, ListDir) {
     ASSERT_EQ(close(dir_fd), 0);
 }
 
-// This test will be passed only under fuse-fat32
+// This test case only passes under fat32
 TEST(StatfsTest, Statfs) {
     struct statfs stat{};
     ASSERT_EQ(statfs("./", &stat), 0);
@@ -572,22 +575,7 @@ TEST(StatfsTest, Statfs) {
     // TODO: ASSERT_GT(stat.f_namelen, 0);
 }
 
-// This test will be passed only under fuse-fat32
-// There seems to be a bug here...
-TEST(CrtFileTest, SpecialFile) {
-    errno = 0;
-    int fd = creat(tmp_file, S_IFCHR);
-    EXPECT_EQ(fd, -1);
-    EXPECT_EQ(errno, EPERM);
-
-    // recover
-    if (fd > 0) {
-        ASSERT_EQ(close(fd), 0);
-        rm_file(tmp_file);
-    }
-}
-
-// This test will be passed only under fuse-fat32
+// This test case only passes under fat32
 TEST(CrtFileTest, ConstantMode) {
     int fd = creat(tmp_file, S_IFREG);
     EXPECT_GT(fd, 0);
@@ -599,9 +587,10 @@ TEST(CrtFileTest, ConstantMode) {
     rm_file(tmp_file);
 }
 
+// This test case only passes under fat32
 TEST(CrtFileTest, IllegalFatChr) {
     std::vector<int> fd_vec;
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < 8; ++i) {
         errno = 0;
         int fd = creat(invalid_fat32_names[i], S_IFREG);
         fd_vec.push_back(fd);
@@ -615,13 +604,13 @@ TEST(CrtFileTest, IllegalFatChr) {
             EXPECT_EQ(close(fd), 0);
         }
 
-        for (int i = 0; i < 9; ++i) {
+        for (int i = 0; i < 8; ++i) {
             rm_file(invalid_fat32_names[i]);
         }
     }
 }
 
-// This test will be passed only under fuse-fat32
+// This test case only passes under fat32
 // require privilege to run `mknod`, otherwise this case will always be passed
 TEST(MknodTest, SpecialFile) {
     errno = 0;
@@ -634,7 +623,7 @@ TEST(MknodTest, SpecialFile) {
     }
 }
 
-// This test will be passed only under fuse-fat32
+// This test case only passes under fat32
 TEST(LinkTest, HardLink) {
     errno = 0;
     int ret = link(short_name_file, non_exist_file);
@@ -646,7 +635,7 @@ TEST(LinkTest, HardLink) {
     }
 }
 
-// This test will be passed only under fuse-fat32
+// This test case only passes under fat32
 TEST(LinkTest, SymLink) {
     errno = 0;
     int ret = symlink(short_name_file, non_exist_file);
@@ -665,6 +654,9 @@ TEST(LinkTest, SymLink) {
 int main(int argc, char **argv) {
     testing::AddGlobalTestEnvironment(new TestSysCallEnv);
     testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    int result = RUN_ALL_TESTS();
+    printf("Warning: There are 10 test cases that are not suppose to pass under other filesystems.\n");
+    printf("Warning: Some test cases require privilege mode to pass.\n");
+    return result;
 }
 
