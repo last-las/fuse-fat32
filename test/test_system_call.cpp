@@ -17,6 +17,7 @@
 #define SEC_SIZE (0x200 * 0x8)
 #define BUF_SIZE (SEC_SIZE * 4)
 char buffer[BUF_SIZE];
+char buffer2[BUF_SIZE];
 const char test_dir[] = "test_dir";
 const char non_exist_file[] = "non_exist_file";
 const char short_name_file[] = "short.txt";
@@ -192,12 +193,36 @@ TEST(FstatTest, Time) {
 
 // This test only passes under fat32.
 TEST(FstatTest, Chmod) {
-    // TODO
+    // before chmod
+    int fd = open(short_name_file, O_RDONLY);
+    ASSERT_GT(fd, 0);
+    struct stat fstat_{};
+    ASSERT_EQ(fstat(fd, &fstat_), 0);
+    mode_t old_mode = fstat_.st_mode;
+
+    // chmod
+    fstat_.st_mode ^= 0001;
+    ASSERT_EQ(chmod(short_name_file, fstat_.st_mode), 0);
+
+    // after chmod
+    ASSERT_EQ(fstat(fd, &fstat_), 0);
+    ASSERT_EQ(fstat_.st_mode, old_mode);
+
+    close(fd);
 }
 
 // This test only passes under fat32.
 TEST(FstatTest, Chown) {
-    // TODO
+    int fd = open(short_name_file, O_RDONLY);
+    ASSERT_GT(fd, 0);
+    struct stat fstat_{};
+    ASSERT_EQ(fstat(fd, &fstat_), 0);
+
+    errno = 0;
+    ASSERT_EQ(chown(short_name_file, 1, 1), -1);
+    ASSERT_EQ(errno, EPERM);
+
+    close(fd);
 }
 
 TEST(MkdirTest, CrtExistDir) {
@@ -234,6 +259,14 @@ TEST(MkdirTest, CrtMultipleLevelDir) {
 
 // This test will be passed only under fuse-fat32
 TEST(MkdirTest, ConstantMode) {
+    ASSERT_EQ(mkdir(tmp_dir, 0741), 0);
+    int fd = open(tmp_dir, O_DIRECTORY);
+    struct stat fstat_{};
+    ASSERT_EQ(fstat(fd, &fstat_), 0);
+    ASSERT_EQ(fstat_.st_mode & 0777, 0755);
+
+    // close
+    ASSERT_EQ(close(fd), 0);
 }
 
 TEST(UnlinkTest, NonExist) {
@@ -358,6 +391,25 @@ TEST(RenameTest, SubDir) {
     // recover
     ASSERT_EQ(rename(tmp_file, non_empty_dir_file1), 0);
     assert_file_non_exist(tmp_file);
+}
+
+TEST(RenameTest, SameContent) {
+    int fd1 = open(non_empty_file, O_RDONLY);
+    ASSERT_GT(fd1, 0);
+    size_t cnt1 = read(fd1, buffer, BUF_SIZE);
+    ASSERT_EQ(rename(non_empty_file, tmp_file), 0);
+    int fd2 = open(tmp_file, O_RDONLY);
+    ASSERT_GT(fd2, 0);
+    size_t cnt2 = read(fd2, buffer, BUF_SIZE);
+    ASSERT_EQ(cnt1, cnt2);
+    for (size_t i = 0; i < cnt1; ++i) {
+        ASSERT_EQ(buffer[i], buffer2[i]);
+    }
+
+    // recover
+    ASSERT_EQ(rename(tmp_file, non_empty_file), 0);
+    assert_file_non_exist(tmp_file);
+    assert_file_exist(non_empty_file);
 }
 
 TEST(RWTest, LessThanOneClus) {
@@ -582,10 +634,32 @@ TEST(MknodTest, SpecialFile) {
     }
 }
 
+// This test will be passed only under fuse-fat32
+TEST(LinkTest, HardLink) {
+    errno = 0;
+    int ret = link(short_name_file, non_exist_file);
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(errno, EPERM);
+
+    if (ret == 0) {
+        rm_file(non_exist_file);
+    }
+}
+
+// This test will be passed only under fuse-fat32
+TEST(LinkTest, SymLink) {
+    errno = 0;
+    int ret = symlink(short_name_file, non_exist_file);
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(errno, EPERM);
+
+    if (ret == 0) {
+        rm_file(non_exist_file);
+    }
+}
+
 // todo:
-//  crt link file should be failed;
-//  create a tmp file, do all the test and return;
-//  test renamed file content;
+// create a sub dir and enter..
 //  basic test cases should set in front of complicated ones, eg, rename.
 
 int main(int argc, char **argv) {
