@@ -14,8 +14,16 @@
  *
  * Google Test does not run tests in parallel, so don't worry about `errno` being overwritten by other threads.
  * */
+struct linux_dirent {
+    long d_ino;
+    off_t d_off;
+    unsigned short d_reclen;
+    char d_name[];
+};
+
 #define SEC_SIZE (0x200 * 0x8)
 #define BUF_SIZE (SEC_SIZE * 4)
+
 char buffer[BUF_SIZE];
 char buffer2[BUF_SIZE];
 const char test_dir[] = "test_dir";
@@ -71,7 +79,7 @@ public:
         }
     }
 
-    // Remove as more directories as possible, so do not exit when unlink fails.
+    // Remove as more directories as possible, so do not exit when unlink fails
     static void rmDir(const char *dirname) {
         int ret = rmdir(dirname);
         if (ret == -1 && errno != 0) {
@@ -79,7 +87,51 @@ public:
         }
     }
 
+    // a simple version of "rm -rf dirname"
+    static void rmDirRecur(const char *dirname) {
+        // open dirname and chdir to it
+        int dir_fd = open(dirname, O_DIRECTORY);
+        if (dir_fd == -1) {
+            return;
+        }
+        chdir(dirname);
+
+        // remove the sub files recursively
+        struct linux_dirent *d;
+        char *buffer = new char[BUF_SIZE];
+        int nread = syscall(SYS_getdents, dir_fd, buffer, BUF_SIZE);
+        for (int bpos = 0; bpos < nread;) {
+            d = (struct linux_dirent *) (buffer + bpos);
+            if (!is_dot_path(d->d_name)) {
+                struct stat fstat_{};
+                stat(d->d_name, &fstat_);
+                if (fstat_.st_mode & S_IFDIR) {
+                    rmDirRecur(d->d_name);
+                } else {
+                    rmFile(d->d_name);
+                }
+            }
+            bpos += d->d_reclen;
+        }
+        close(dir_fd);
+        delete[]buffer;
+
+        // chdir to parent dir and remove dirname
+        chdir("..");
+        rmDir(dirname);
+    }
+
+    static bool is_dot_path(const char *path) {
+        if (strcmp(path, ".") == 0 || strcmp(path, "..") == 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     void SetUp() override {
+        crtDirOrExist(test_dir);
+        chdir(test_dir);
         crtFileOrExist(short_name_file);
         crtFileOrExist(long_name_file);
         crtFileOrExist(non_empty_file);
@@ -91,14 +143,8 @@ public:
     }
 
     void TearDown() override {
-        rmFile(short_name_file);
-        rmFile(long_name_file);
-        rmFile(non_empty_file);
-        rmDir(short_name_dir);
-        rmFile(non_empty_dir_file1);
-        rmFile(non_empty_dir_file2);
-        rmDir(non_empty_dir_dir);
-        rmDir(non_empty_dir);
+        chdir("..");
+        rmDirRecur(test_dir);
     }
 };
 
@@ -292,6 +338,231 @@ TEST(UnlinkTest, RmDir) {
     ASSERT_EQ(rmdir(non_exist_dir), 0);
 }
 
+
+TEST(RWTest, LessThanOneClus) {
+    // prepare a buffer
+    int sz = SEC_SIZE / 2;
+    char byte = 0x34;
+    memset(buffer, byte, sz);
+
+    // write to file
+    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
+    ASSERT_GT(fd, 0);
+    ssize_t cnt = write(fd, buffer, sz);
+    ASSERT_EQ(cnt, sz);
+    ASSERT_EQ(close(fd), 0);
+
+    // clear buffer first
+    memset(buffer, 0, sz);
+
+    // read from file
+    fd = open(tmp_file, O_RDONLY);
+    ASSERT_GT(fd, 0);
+    cnt = read(fd, buffer, sz);
+    ASSERT_EQ(cnt, sz);
+    for (int i = 0; i < cnt; ++i) {
+        ASSERT_EQ(buffer[i], byte);
+    }
+    ASSERT_EQ(close(fd), 0);
+
+    // recover
+    rm_file(tmp_file);
+}
+
+TEST(RWTest, MoreThanOneClus) {
+    // prepare a buffer
+    int sz = BUF_SIZE;
+    char byte = 0x34;
+    memset(buffer, byte, sz);
+
+    // write to file
+    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
+    ASSERT_GT(fd, 0);
+    ssize_t cnt = write(fd, buffer, sz);
+    ASSERT_EQ(cnt, sz);
+    ASSERT_EQ(close(fd), 0);
+
+    // clear buffer first
+    memset(buffer, 0, sz);
+
+    // read from file
+    fd = open(tmp_file, O_RDONLY);
+    ASSERT_GT(fd, 0);
+    cnt = read(fd, buffer, sz);
+    ASSERT_EQ(cnt, sz);
+    for (int i = 0; i < cnt; ++i) {
+        ASSERT_EQ(buffer[i], byte);
+    }
+    ASSERT_EQ(close(fd), 0);
+
+    // recover
+    rm_file(tmp_file);
+}
+
+TEST(RWTest, MoreThanFileSz) {
+    // prepare a buffer
+    int sz = SEC_SIZE / 2;
+    char byte = 0x34;
+    memset(buffer, byte, sz);
+
+    // write to file
+    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
+    ASSERT_GT(fd, 0);
+    ssize_t cnt = write(fd, buffer, sz);
+    ASSERT_EQ(cnt, sz);
+    ASSERT_EQ(close(fd), 0);
+
+    // read from file
+    int big_sz = sz * 3;
+    fd = open(tmp_file, O_RDONLY);
+    ASSERT_GT(fd, 0);
+    cnt = read(fd, buffer, big_sz);
+    ASSERT_EQ(cnt, sz);
+
+    // recover
+    rm_file(tmp_file);
+}
+
+TEST(RWTest, MultipleTimes) {
+    // prepare a buffer
+    int sz = SEC_SIZE / 2;
+    char byte = 0x34;
+
+    // write to file
+    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
+    ASSERT_GT(fd, 0);
+    ssize_t cnt;
+    char tmp_byte = byte;
+    for (int i = 0; i < sz; ++i) {
+        cnt = write(fd, &tmp_byte, 1);
+        ASSERT_EQ(cnt, 1);
+    }
+    ASSERT_EQ(close(fd), 0);
+
+    // read from file
+    fd = open(tmp_file, O_RDONLY);
+    ASSERT_GT(fd, 0);
+    for (int i = 0; i < sz; ++i) {
+        tmp_byte = 0;
+        cnt = read(fd, &tmp_byte, 1);
+        ASSERT_EQ(cnt, 1);
+        ASSERT_EQ(tmp_byte, byte);
+    }
+    ASSERT_EQ(close(fd), 0);
+
+    // recover
+    rm_file(tmp_file);
+}
+
+TEST(ReadDirTest, ListDir) {
+    int dir_fd = open(non_empty_dir, O_DIRECTORY);
+    ASSERT_GT(dir_fd, 0);
+
+    struct linux_dirent *d;
+    int nread = syscall(SYS_getdents, dir_fd, buffer, BUF_SIZE);
+    ASSERT_GT(nread, 0);
+    std::vector<std::string> files;
+    for (int bpos = 0; bpos < nread;) {
+        d = (struct linux_dirent *) (buffer + bpos);
+        files.emplace_back(d->d_name);
+        bpos += d->d_reclen;
+    }
+    std::sort(files.begin(), files.end());
+    ASSERT_STREQ(files[0].c_str(), ".");
+    ASSERT_STREQ(files[1].c_str(), "..");
+    ASSERT_STREQ(files[2].c_str(), "sub_dir");
+    ASSERT_STREQ(files[3].c_str(), "sub_file1.txt");
+    ASSERT_STREQ(files[4].c_str(), "sub_file2.txt");
+
+    ASSERT_EQ(close(dir_fd), 0);
+}
+
+// This test case only passes under fat32
+TEST(StatfsTest, Statfs) {
+    struct statfs stat{};
+    ASSERT_EQ(statfs("./", &stat), 0);
+    ASSERT_EQ(stat.f_type, 0x4d44); // MSDOS_SUPER_MAGIC
+    ASSERT_GT(stat.f_bsize, 0);
+    ASSERT_GT(stat.f_blocks, 0);
+    ASSERT_GT(stat.f_bfree, 0);
+    ASSERT_GT(stat.f_bavail, 0);
+    ASSERT_EQ(stat.f_files, 0);
+    ASSERT_EQ(stat.f_ffree, 0);
+    // TODO: ASSERT_GT(stat.f_namelen, 0);
+}
+
+// This test case only passes under fat32
+TEST(CrtFileTest, ConstantMode) {
+    int fd = creat(tmp_file, S_IFREG);
+    EXPECT_GT(fd, 0);
+    struct stat stat_{};
+    EXPECT_EQ(fstat(fd, &stat_), 0);
+    EXPECT_EQ(stat_.st_mode & 0777, 0755);
+
+    EXPECT_EQ(close(fd), 0);
+    rm_file(tmp_file);
+}
+
+// This test case only passes under fat32
+TEST(CrtFileTest, IllegalFatChr) {
+    std::vector<int> fd_vec;
+    for (int i = 0; i < 8; ++i) {
+        errno = 0;
+        int fd = creat(invalid_fat32_names[i], S_IFREG);
+        fd_vec.push_back(fd);
+        EXPECT_EQ(fd, -1);
+        EXPECT_EQ(errno, EINVAL);
+    }
+
+    // recover
+    if (fd_vec[0] > 0) {
+        for (const auto &fd: fd_vec) {
+            EXPECT_EQ(close(fd), 0);
+        }
+
+        for (int i = 0; i < 8; ++i) {
+            rm_file(invalid_fat32_names[i]);
+        }
+    }
+}
+
+// This test case only passes under fat32
+// require privilege to run `mknod`, otherwise this case will always be passed
+TEST(MknodTest, SpecialFile) {
+    errno = 0;
+    int ret = mknod(tmp_file, S_IFCHR, 12345);
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(errno, EPERM);
+
+    if (ret == 0) {
+        rm_file(tmp_file);
+    }
+}
+
+// This test case only passes under fat32
+TEST(LinkTest, HardLink) {
+    errno = 0;
+    int ret = link(short_name_file, non_exist_file);
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(errno, EPERM);
+
+    if (ret == 0) {
+        rm_file(non_exist_file);
+    }
+}
+
+// This test case only passes under fat32
+TEST(LinkTest, SymLink) {
+    errno = 0;
+    int ret = symlink(short_name_file, non_exist_file);
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(errno, EPERM);
+
+    if (ret == 0) {
+        rm_file(non_exist_file);
+    }
+}
+
 // This test case only passes under fat32
 TEST(RenameTest, IgnoreFlags) {
     errno = 0;
@@ -414,242 +685,6 @@ TEST(RenameTest, SameContent) {
     assert_file_non_exist(tmp_file);
     assert_file_exist(non_empty_file);
 }
-
-TEST(RWTest, LessThanOneClus) {
-    // prepare a buffer
-    int sz = SEC_SIZE / 2;
-    char byte = 0x34;
-    memset(buffer, byte, sz);
-
-    // write to file
-    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
-    ASSERT_GT(fd, 0);
-    ssize_t cnt = write(fd, buffer, sz);
-    ASSERT_EQ(cnt, sz);
-    ASSERT_EQ(close(fd), 0);
-
-    // clear buffer first
-    memset(buffer, 0, sz);
-
-    // read from file
-    fd = open(tmp_file, O_RDONLY);
-    ASSERT_GT(fd, 0);
-    cnt = read(fd, buffer, sz);
-    ASSERT_EQ(cnt, sz);
-    for (int i = 0; i < cnt; ++i) {
-        ASSERT_EQ(buffer[i], byte);
-    }
-    ASSERT_EQ(close(fd), 0);
-
-    // recover
-    rm_file(tmp_file);
-}
-
-TEST(RWTest, MoreThanOneClus) {
-    // prepare a buffer
-    int sz = BUF_SIZE;
-    char byte = 0x34;
-    memset(buffer, byte, sz);
-
-    // write to file
-    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
-    ASSERT_GT(fd, 0);
-    ssize_t cnt = write(fd, buffer, sz);
-    ASSERT_EQ(cnt, sz);
-    ASSERT_EQ(close(fd), 0);
-
-    // clear buffer first
-    memset(buffer, 0, sz);
-
-    // read from file
-    fd = open(tmp_file, O_RDONLY);
-    ASSERT_GT(fd, 0);
-    cnt = read(fd, buffer, sz);
-    ASSERT_EQ(cnt, sz);
-    for (int i = 0; i < cnt; ++i) {
-        ASSERT_EQ(buffer[i], byte);
-    }
-    ASSERT_EQ(close(fd), 0);
-
-    // recover
-    rm_file(tmp_file);
-}
-
-TEST(RWTest, MoreThanFileSz) {
-    // prepare a buffer
-    int sz = SEC_SIZE / 2;
-    char byte = 0x34;
-    memset(buffer, byte, sz);
-
-    // write to file
-    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
-    ASSERT_GT(fd, 0);
-    ssize_t cnt = write(fd, buffer, sz);
-    ASSERT_EQ(cnt, sz);
-    ASSERT_EQ(close(fd), 0);
-
-    // read from file
-    int big_sz = sz * 3;
-    fd = open(tmp_file, O_RDONLY);
-    ASSERT_GT(fd, 0);
-    cnt = read(fd, buffer, big_sz);
-    ASSERT_EQ(cnt, sz);
-
-    // recover
-    rm_file(tmp_file);
-}
-
-TEST(RWTest, MultipleTimes) {
-    // prepare a buffer
-    int sz = SEC_SIZE / 2;
-    char byte = 0x34;
-
-    // write to file
-    int fd = open(tmp_file, O_WRONLY | O_CREAT, 0644);
-    ASSERT_GT(fd, 0);
-    ssize_t cnt;
-    char tmp_byte = byte;
-    for (int i = 0; i < sz; ++i) {
-        cnt = write(fd, &tmp_byte, 1);
-        ASSERT_EQ(cnt, 1);
-    }
-    ASSERT_EQ(close(fd), 0);
-
-    // read from file
-    fd = open(tmp_file, O_RDONLY);
-    ASSERT_GT(fd, 0);
-    for (int i = 0; i < sz; ++i) {
-        tmp_byte = 0;
-        cnt = read(fd, &tmp_byte, 1);
-        ASSERT_EQ(cnt, 1);
-        ASSERT_EQ(tmp_byte, byte);
-    }
-    ASSERT_EQ(close(fd), 0);
-
-    // recover
-    rm_file(tmp_file);
-}
-
-
-struct linux_dirent {
-    long d_ino;
-    off_t d_off;
-    unsigned short d_reclen;
-    char d_name[];
-};
-
-TEST(ReadDirTest, ListDir) {
-    int dir_fd = open(non_empty_dir, O_DIRECTORY);
-    ASSERT_GT(dir_fd, 0);
-
-    struct linux_dirent *d;
-    int nread = syscall(SYS_getdents, dir_fd, buffer, BUF_SIZE);
-    ASSERT_GT(nread, 0);
-    std::vector<std::string> files;
-    for (int bpos = 0; bpos < nread;) {
-        d = (struct linux_dirent *) (buffer + bpos);
-        files.emplace_back(d->d_name);
-        bpos += d->d_reclen;
-    }
-    std::sort(files.begin(), files.end());
-    ASSERT_STREQ(files[0].c_str(), ".");
-    ASSERT_STREQ(files[1].c_str(), "..");
-    ASSERT_STREQ(files[2].c_str(), "sub_dir");
-    ASSERT_STREQ(files[3].c_str(), "sub_file1.txt");
-    ASSERT_STREQ(files[4].c_str(), "sub_file2.txt");
-
-    ASSERT_EQ(close(dir_fd), 0);
-}
-
-// This test case only passes under fat32
-TEST(StatfsTest, Statfs) {
-    struct statfs stat{};
-    ASSERT_EQ(statfs("./", &stat), 0);
-    ASSERT_EQ(stat.f_type, 0x4d44); // MSDOS_SUPER_MAGIC
-    ASSERT_GT(stat.f_bsize, 0);
-    ASSERT_GT(stat.f_blocks, 0);
-    ASSERT_GT(stat.f_bfree, 0);
-    ASSERT_GT(stat.f_bavail, 0);
-    ASSERT_EQ(stat.f_files, 0);
-    ASSERT_EQ(stat.f_ffree, 0);
-    // TODO: ASSERT_GT(stat.f_namelen, 0);
-}
-
-// This test case only passes under fat32
-TEST(CrtFileTest, ConstantMode) {
-    int fd = creat(tmp_file, S_IFREG);
-    EXPECT_GT(fd, 0);
-    struct stat stat_{};
-    EXPECT_EQ(fstat(fd, &stat_), 0);
-    EXPECT_EQ(stat_.st_mode & 0777, 0755);
-
-    EXPECT_EQ(close(fd), 0);
-    rm_file(tmp_file);
-}
-
-// This test case only passes under fat32
-TEST(CrtFileTest, IllegalFatChr) {
-    std::vector<int> fd_vec;
-    for (int i = 0; i < 8; ++i) {
-        errno = 0;
-        int fd = creat(invalid_fat32_names[i], S_IFREG);
-        fd_vec.push_back(fd);
-        EXPECT_EQ(fd, -1);
-        EXPECT_EQ(errno, EINVAL);
-    }
-
-    // recover
-    if (fd_vec[0] > 0) {
-        for (const auto &fd: fd_vec) {
-            EXPECT_EQ(close(fd), 0);
-        }
-
-        for (int i = 0; i < 8; ++i) {
-            rm_file(invalid_fat32_names[i]);
-        }
-    }
-}
-
-// This test case only passes under fat32
-// require privilege to run `mknod`, otherwise this case will always be passed
-TEST(MknodTest, SpecialFile) {
-    errno = 0;
-    int ret = mknod(tmp_file, S_IFCHR, 12345);
-    EXPECT_EQ(ret, -1);
-    EXPECT_EQ(errno, EPERM);
-
-    if (ret == 0) {
-        rm_file(tmp_file);
-    }
-}
-
-// This test case only passes under fat32
-TEST(LinkTest, HardLink) {
-    errno = 0;
-    int ret = link(short_name_file, non_exist_file);
-    EXPECT_EQ(ret, -1);
-    EXPECT_EQ(errno, EPERM);
-
-    if (ret == 0) {
-        rm_file(non_exist_file);
-    }
-}
-
-// This test case only passes under fat32
-TEST(LinkTest, SymLink) {
-    errno = 0;
-    int ret = symlink(short_name_file, non_exist_file);
-    EXPECT_EQ(ret, -1);
-    EXPECT_EQ(errno, EPERM);
-
-    if (ret == 0) {
-        rm_file(non_exist_file);
-    }
-}
-
-// todo:
-// create a sub dir and enter..
-//  basic test cases should set in front of complicated ones, eg, rename.
 
 int main(int argc, char **argv) {
     testing::AddGlobalTestEnvironment(new TestSysCallEnv);
