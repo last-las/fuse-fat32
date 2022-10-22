@@ -19,31 +19,17 @@ namespace device {
 
     class Sector {
     public:
-        Sector(u32 sec_num, Device &device) noexcept: sec_num_{sec_num}, device_{device} {}
+        Sector(u32 sec_num, Device &device) noexcept;
 
-        void mark_dirty() {
-            dirty_ = true;
-        }
+        void mark_dirty() noexcept;
 
-        const void *read_ptr(u32 offset) noexcept {
-            return &value_[offset];
-        }
+        const void *read_ptr(u32 offset) noexcept;
 
-        void *write_ptr(u32 offset) noexcept {
-            dirty_ = true;
-            return &value_[offset];
-        }
+        const void *write_ptr(u32 offset) noexcept;
 
-        void sync() noexcept {
-            if (dirty_) {
-                device_.writeSectorValue(sec_num_, value_);
-                dirty_ = false;
-            }
-        }
+        void sync() noexcept;
 
-        ~Sector() noexcept {
-            sync();
-        }
+        ~Sector() noexcept;
 
     private:
         u32 sec_num_;
@@ -54,11 +40,11 @@ namespace device {
 
     class LinuxFileDevice : public Device {
     public:
-        explicit LinuxFileDevice(std::string file_path) noexcept: file_path_{std::move(file_path)} {}
+        explicit LinuxFileDevice(std::string file_path) noexcept;
 
-        std::optional<std::shared_ptr<Sector>> readSector(u32 sec_num) noexcept override {}
+        std::optional<std::shared_ptr<Sector>> readSector(u32 sec_num) noexcept override;
 
-        bool writeSectorValue(u32 sec_num, const u8 *buf) noexcept override {}
+        bool writeSectorValue(u32 sec_num, const u8 *buf) noexcept override;
 
     private:
         std::string file_path_;
@@ -66,12 +52,11 @@ namespace device {
 
     class CacheManager : public Device {
     public:
-        explicit CacheManager(Device &device, u32 cache_sz = CACHED_SECTOR_NUM)
-        noexcept: device_{device}, sector_cache_(cache_sz) {}
+        explicit CacheManager(Device &device, u32 cache_sz = CACHED_SECTOR_NUM) noexcept;
 
-        std::optional<std::shared_ptr<Sector>> readSector(u32 sec_num) noexcept override {}
+        std::optional<std::shared_ptr<Sector>> readSector(u32 sec_num) noexcept override;
 
-        bool writeSectorValue(u32 sec_num, const u8 *buf) noexcept override {}
+        bool writeSectorValue(u32 sec_num, const u8 *buf) noexcept override;
 
     private:
         Device &device_;

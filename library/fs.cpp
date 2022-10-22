@@ -6,11 +6,27 @@ namespace fs {
      * */
     u64 File::read(byte *buf, u64 size, u64 offset) noexcept {}
 
+    const char *File::name() noexcept {}
+
     u64 File::write(const byte *buf, u64 size, u64 offset) noexcept {}
 
     void File::sync(bool sync_meta) noexcept {}
 
     bool File::truncate(u32 length) noexcept {}
+
+    void File::setCrtTime(FatTimeStamp2 ts) noexcept {}
+
+    void File::setAccTime(FatTimeStamp ts) noexcept {}
+
+    void File::setWrtTime(FatTimeStamp ts) noexcept {}
+
+    bool File::isDir() noexcept {}
+
+    void File::markDeleted() noexcept {}
+
+    u64 File::ino() noexcept {}
+
+    void File::renameTo(shared_ptr<File> target) noexcept {}
 
     /**
      * Directory
@@ -31,11 +47,13 @@ namespace fs {
     /**
      * Filesystem
      * */
-    FAT32fs FAT32fs::from(device::Device& device) noexcept {
+    FAT32fs::FAT32fs(device::Device &device) noexcept: device_{device} {}
+
+    FAT32fs FAT32fs::from(device::Device &device) noexcept {
         return FAT32fs(device);
     }
 
-    std::optional<FAT32fs> FAT32fs::mkfs(device::Device* device) noexcept {}
+    std::optional<FAT32fs> FAT32fs::mkfs(device::Device *device) noexcept {}
 
     shared_ptr<Directory> FAT32fs::getRootDir() noexcept {}
 

@@ -19,7 +19,7 @@ namespace fs {
         /**
          * Return a null-terminated filename pointer.
          * */
-        const char *name() noexcept {}
+        const char *name() noexcept;
 
         u64 write(const byte *buf, u64 size, u64 offset) noexcept;
 
@@ -27,22 +27,20 @@ namespace fs {
 
         bool truncate(u32 length) noexcept;
 
-        void setCrtTime(FatTimeStamp2 ts) noexcept {}
+        void setCrtTime(FatTimeStamp2 ts) noexcept;
 
-        void setAccTime(FatTimeStamp ts) noexcept {}
+        void setAccTime(FatTimeStamp ts) noexcept;
 
-        void setWrtTime(FatTimeStamp ts) noexcept {}
+        void setWrtTime(FatTimeStamp ts) noexcept;
 
-        bool isDir() noexcept {}
+        bool isDir() noexcept;
 
-        void markDeleted() noexcept {
-            is_deleted_ = true;
-        }
+        void markDeleted() noexcept;
 
-        u64 ino() noexcept {}
+        u64 ino() noexcept;
 
         // modify parent_sec_, entry_num_ and filename to target's value
-        void renameTo(shared_ptr<File> target) noexcept {}
+        void renameTo(shared_ptr<File> target) noexcept;
 
         virtual ~File() = default;
 
@@ -77,7 +75,7 @@ namespace fs {
     class FAT32fs {
     public:
         // TODO: make the constructor private.
-        explicit FAT32fs(device::Device &device) noexcept : device_{device} {}
+        explicit FAT32fs(device::Device &device) noexcept;
 
         static FAT32fs from(device::Device &device) noexcept;
 
