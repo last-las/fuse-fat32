@@ -25,10 +25,10 @@ namespace util {
             auto it = caches_map_.find(key);
             if (it != caches_map_.end()) {
                 caches_map_.erase(key);
-                key_value_list_.erase(it);
+                key_value_list_.erase(it->second);
             }
             key_value_list_.push_front(std::pair(key, value));
-            caches_map_.insert(key, key_value_list_.begin());
+            caches_map_[key]= key_value_list_.begin();
 
             if (caches_map_.size() > max_size_) {
                 auto removed_item = key_value_list_.end();
@@ -41,7 +41,7 @@ namespace util {
         std::optional<value_t> get(key_t key) noexcept {
             auto it = caches_map_.find(key);
             if (it != caches_map_.end()) {
-                return std::optional(it->second);
+                return std::optional(it->second->second);
             } else {
                 return std::nullopt;
             }
