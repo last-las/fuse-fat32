@@ -60,7 +60,7 @@ namespace device {
 
     private:
         Device &device_;
-        util::LRUCache<u32, std::array<u8, SECTOR_SIZE>> sector_cache_;
+        util::LRUCacheMap<u32, std::array<u8, SECTOR_SIZE>> sector_cache_;
     };
 
 } // namespace device

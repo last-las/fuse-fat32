@@ -99,7 +99,7 @@ namespace fs {
 
     private:
         device::Device &device_;
-        util::LRUCache<u64, shared_ptr<File>> cached_lookup_files_{20};
+        util::LRUCacheMap<u64, shared_ptr<File>> cached_lookup_files_{20};
         std::unordered_map<u64, shared_ptr<File>> cached_open_files_;
     };
 

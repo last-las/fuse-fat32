@@ -14,28 +14,34 @@ typedef u32 size;
 
 namespace util {
     template<typename key_t, typename value_t>
-    class LRUCache {
+    class LRUCacheMap {
     public:
-        explicit LRUCache(u32 max_size) noexcept: max_size_{max_size} {}
+        typedef std::pair<key_t, value_t> key_value_pair_t;
+        typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
+
+        explicit LRUCacheMap(u32 max_size) noexcept: max_size_{max_size} {}
 
         void put(key_t key, value_t value) noexcept {
-            if (caches_map_.find(key) != caches_map_.end()) {
+            auto it = caches_map_.find(key);
+            if (it != caches_map_.end()) {
                 caches_map_.erase(key);
-                key_queue_.remove(key);
+                key_value_list_.erase(it);
             }
-            caches_map_.insert(key, value);
-            key_queue_.push_back(key);
+            key_value_list_.push_front(std::pair(key, value));
+            caches_map_.insert(key, key_value_list_.begin());
 
             if (caches_map_.size() > max_size_) {
-                auto removed_key = key_queue_.begin();
-                caches_map_.erase(*removed_key);
-                key_queue_.pop_front();
+                auto removed_item = key_value_list_.end();
+                removed_item--;
+                caches_map_.erase(removed_item->first);
+                key_value_list_.erase(removed_item);
             }
         }
 
         std::optional<value_t> get(key_t key) noexcept {
-            if (caches_map_.find(key) != caches_map_.end()) {
-                return std::optional(caches_map_[key]);
+            auto it = caches_map_.find(key);
+            if (it != caches_map_.end()) {
+                return std::optional(it->second);
             } else {
                 return std::nullopt;
             }
@@ -43,8 +49,8 @@ namespace util {
 
     private:
         u32 max_size_;
-        std::unordered_map<key_t, value_t> caches_map_;
-        std::list<key_t> key_queue_;
+        std::unordered_map<key_t, list_iterator_t> caches_map_;
+        std::list<key_value_pair_t> key_value_list_;
     };
 } // namespace util
 
