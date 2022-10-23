@@ -17,6 +17,7 @@ namespace device {
         virtual bool writeSectorValue(u32, const u8 *) = 0;
     };
 
+    // TODO: comment here.
     class Sector {
     public:
         Sector(u32 sec_num, Device &device) noexcept;
@@ -29,18 +30,25 @@ namespace device {
 
         void sync() noexcept;
 
+        void modify_device(Device &device) noexcept;
+
         ~Sector() noexcept;
 
     private:
         u32 sec_num_;
         u8 value_[SECTOR_SIZE];
         Device &device_;
-        bool dirty_ = false;
+        bool dirty_;
     };
 
-    class LinuxFileDevice : public Device {
+    /**
+     * Treat Linux file as a block device using Linux system call.
+     *
+     * When using the `LinuxFileDriver`, the caller must make sure the `file_path_` exist, otherwise it panics.
+     * */
+    class LinuxFileDriver : public Device {
     public:
-        explicit LinuxFileDevice(std::string file_path) noexcept;
+        explicit LinuxFileDriver(std::string file_path) noexcept;
 
         std::optional<std::shared_ptr<Sector>> readSector(u32 sec_num) noexcept override;
 
@@ -48,6 +56,7 @@ namespace device {
 
     private:
         std::string file_path_;
+        u64 device_sz_;
     };
 
     class CacheManager : public Device {

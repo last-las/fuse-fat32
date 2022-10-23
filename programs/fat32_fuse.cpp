@@ -382,8 +382,9 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
 };
 
 int main(int argc, char *argv[]) {
-    // TODO: enable -o default_permissions
-    device::LinuxFileDevice dev = device::LinuxFileDevice("/dev/sdb1");
+    // TODO: enable -o default_permissions;
+    // TODO: make sure the path exists!
+    device::LinuxFileDriver dev = device::LinuxFileDriver("/dev/sdb1");
     device::CacheManager cache_mgr = device::CacheManager(dev);
     auto fs = fs::FAT32fs::from(cache_mgr);
     printf("hello world! --fuse\n");

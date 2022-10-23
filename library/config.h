@@ -2,7 +2,7 @@
 #define STUPID_FAT32_CONFIG_H
 
 // device
-#define SECTOR_SIZE 4096
+#define SECTOR_SIZE 512
 
 #define CACHED_SECTOR_NUM 64
 
