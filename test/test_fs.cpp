@@ -96,6 +96,9 @@ private:
     }
 };
 
+/**
+ * LRUCacheMapTest
+ * */
 TEST(LRUCacheMapTest, PutElement) {
     u32 max_size = 3;
     util::LRUCacheMap<u32, u32> lru_map(max_size);
@@ -148,26 +151,48 @@ TEST(LRUCacheMapTest, SharedPtr) {
     // TODO: std::moved
 }
 
-// TODO: add test for LRUCacheMapTest::get
-
-TEST(LinuxFileDriverTest, RegularRW) {
-    device::LinuxFileDriver linux_file_driver(regular_file);
+void testRegularRWOnDevice(device::Device &device) {
     byte val = 0x66;
     for (u32 i = 0; i < sector_num; ++i) {
         // write sector
-        auto w_sector = linux_file_driver.readSector(i).value();
+        auto w_sector = device.readSector(i).value();
         auto w_ptr = (byte *) w_sector->write_ptr(0);
         memset(w_ptr, val, SECTOR_SIZE);
         w_sector->sync();
 
         // read sector
-        auto r_sector = linux_file_driver.readSector(i).value();
+        auto r_sector = device.readSector(i).value();
         auto r_ptr = (const byte *) r_sector->read_ptr(0);
         for (int j = 0; j < SECTOR_SIZE; ++j) {
             ASSERT_EQ(*r_ptr, val);
         }
     }
+}
 
+void testBlkDevRWOnDevice(device::Device &device) {
+    byte val = 0x66;
+    for (u32 i = 0; i < sector_num; ++i) {
+        // write sector
+        auto w_sector = device.readSector(i).value();
+        auto w_ptr = (byte *) w_sector->write_ptr(0);
+        memset(w_ptr, val, SECTOR_SIZE);
+        w_sector->sync();
+
+        // read sector
+        auto r_sector = device.readSector(i).value();
+        auto r_ptr = (const byte *) r_sector->read_ptr(0);
+        for (int j = 0; j < SECTOR_SIZE; ++j) {
+            ASSERT_EQ(*r_ptr, val);
+        }
+    }
+}
+
+/**
+ * LinuxFileDriverTest
+ * */
+TEST(LinuxFileDriverTest, RegularRW) {
+    device::LinuxFileDriver linux_file_driver(regular_file);
+    testRegularRWOnDevice(linux_file_driver);
 }
 
 TEST(LinuxFileDriverTest, BlkDevRW) {
@@ -176,25 +201,13 @@ TEST(LinuxFileDriverTest, BlkDevRW) {
     }
 
     device::LinuxFileDriver linux_file_driver(loop_name);
-    byte val = 0x66;
-    for (u32 i = 0; i < sector_num; ++i) {
-        // write sector
-        auto w_sector = linux_file_driver.readSector(i).value();
-        auto w_ptr = (byte *) w_sector->write_ptr(0);
-        memset(w_ptr, val, SECTOR_SIZE);
-        w_sector->sync();
-
-        // read sector
-        auto r_sector = linux_file_driver.readSector(i).value();
-        auto r_ptr = (const byte *) r_sector->read_ptr(0);
-        for (int j = 0; j < SECTOR_SIZE; ++j) {
-            ASSERT_EQ(*r_ptr, val);
-        }
-    }
-
+    testBlkDevRWOnDevice(linux_file_driver);
 }
 
-TEST(LinuxFileDriverTest, RWFromOffset) {
+/**
+ * SectorTest
+ * */
+TEST(SectorTest, RWFromOffset) {
     device::LinuxFileDriver linux_file_driver(regular_file);
     auto off = 5;
     auto mess_len = strlen(message);
@@ -208,13 +221,13 @@ TEST(LinuxFileDriverTest, RWFromOffset) {
     ASSERT_EQ(strncmp(message, r_ptr + off, mess_len), 0);
 }
 
-TEST(LinuxFileDriverTest, OffsetBeyondSectorSize) {
+TEST(SectorTest, OffsetBeyondSectorSize) {
     device::LinuxFileDriver linux_file_driver(regular_file);
     auto w_sector = linux_file_driver.readSector(0).value();
     ASSERT_DEATH(w_sector->write_ptr(SECTOR_SIZE), ".*");
 }
 
-TEST(LinuxFileDriverTest, SectorDestructor) {
+TEST(SectorTest, SectorDestructor) {
     device::LinuxFileDriver linux_file_driver(regular_file);
     auto mess_len = strlen(message);
 
@@ -233,6 +246,9 @@ TEST(LinuxFileDriverTest, SectorDestructor) {
     ASSERT_EQ(strncmp(message, r_ptr, mess_len), 0);
 }
 
+/**
+ * CacheManagerTest
+ * */
 TEST(CacheManagerTest, FetchSameSecTwice) {
     device::LinuxFileDriver linuxFileDriver(regular_file);
     device::CacheManager cacheManager(linuxFileDriver);
@@ -240,6 +256,7 @@ TEST(CacheManagerTest, FetchSameSecTwice) {
     auto sec2 = cacheManager.readSector(0);
     ASSERT_EQ(sec1, sec2);
 }
+
 TEST(CacheManagerTest, LRU) {
     device::LinuxFileDriver linuxFileDriver(regular_file);
     device::CacheManager cacheManager(linuxFileDriver, 3);
@@ -256,9 +273,20 @@ TEST(CacheManagerTest, LRU) {
     ASSERT_TRUE(cacheManager.contains(4));
 }
 
-// todo: test all cases in LinuxFileDriverTest for CacheManager
-TEST(CacheManagerTest, ActLikeInnerDevice) {
-    GTEST_SKIP();
+TEST(CacheManagerTest, RegularRW) {
+    device::LinuxFileDriver linuxFileDriver(regular_file);
+    device::CacheManager cacheManager(linuxFileDriver);
+    testRegularRWOnDevice(cacheManager);
+}
+
+TEST(CacheManagerTest, BlkDevRW) {
+    if (!enable_loop) {
+        GTEST_SKIP();
+    }
+
+    device::LinuxFileDriver linuxFileDriver(regular_file);
+    device::CacheManager cacheManager(linuxFileDriver);
+    testBlkDevRWOnDevice(cacheManager);
 }
 
 // todo: check google test.
