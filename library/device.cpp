@@ -24,10 +24,12 @@ namespace device {
     }
 
     const void *Sector::read_ptr(u32 offset) noexcept {
+        assert(offset < SECTOR_SIZE);
         return &value_[offset];
     }
 
     const void *Sector::write_ptr(u32 offset) noexcept {
+        assert(offset < SECTOR_SIZE);
         dirty_ = true;
         return &value_[offset];
     }

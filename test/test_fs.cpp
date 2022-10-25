@@ -4,6 +4,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <cstring>
 
 #include "gtest/gtest.h"
 
@@ -13,14 +14,14 @@
 
 char regular_file[] = "regular_file";
 char loop_name[512];
-u64 regular_file_sz = SECTOR_SIZE * 64; // 32KB
+u32 sector_num = 64;
+u64 regular_file_sz = SECTOR_SIZE * sector_num; // 32KB
+const char message[] = "hello, world!";
+bool enable_loop = false;
 
 class TestFsEnv : public testing::Environment {
 public:
-    TestFsEnv() : enable_loop(false) {}
-
     ~TestFsEnv() override = default;
-
 
     void SetUp() override {
         add_regular_file();
@@ -93,8 +94,6 @@ private:
             return;
         }
     }
-
-    bool enable_loop;
 };
 
 TEST(LRUCacheMapTest, BasicUsage) {
@@ -131,12 +130,85 @@ TEST(LRUCacheMapTest, SharedPtr) {
 
 TEST(LinuxFileDriverTest, RegularRW) {
     device::LinuxFileDriver linux_file_driver(regular_file);
-    auto sector = linux_file_driver.readSector(0).value();
-    u8 *ptr = (u8 *) sector->write_ptr(0);
+    byte val = 0x66;
+    for (u32 i = 0; i < sector_num; ++i) {
+        // write sector
+        auto w_sector = linux_file_driver.readSector(i).value();
+        auto w_ptr = (byte *) w_sector->write_ptr(0);
+        memset(w_ptr, val, SECTOR_SIZE);
+        w_sector->sync();
+
+        // read sector
+        auto r_sector = linux_file_driver.readSector(i).value();
+        auto r_ptr = (const byte *) r_sector->read_ptr(0);
+        for (int j = 0; j < SECTOR_SIZE; ++j) {
+            ASSERT_EQ(*r_ptr, val);
+        }
+    }
+
 }
 
-// TODO: use a loop file as /dev/sdb1 to prevent further issues!
 TEST(LinuxFileDriverTest, BlkDevRW) {
+    if (!enable_loop) {
+        GTEST_SKIP();
+    }
+
+    device::LinuxFileDriver linux_file_driver(loop_name);
+    byte val = 0x66;
+    for (u32 i = 0; i < sector_num; ++i) {
+        // write sector
+        auto w_sector = linux_file_driver.readSector(i).value();
+        auto w_ptr = (byte *) w_sector->write_ptr(0);
+        memset(w_ptr, val, SECTOR_SIZE);
+        w_sector->sync();
+
+        // read sector
+        auto r_sector = linux_file_driver.readSector(i).value();
+        auto r_ptr = (const byte *) r_sector->read_ptr(0);
+        for (int j = 0; j < SECTOR_SIZE; ++j) {
+            ASSERT_EQ(*r_ptr, val);
+        }
+    }
+
+}
+
+TEST(LinuxFileDriverTest, RWFromOffset) {
+    device::LinuxFileDriver linux_file_driver(regular_file);
+    auto off = 5;
+    auto mess_len = strlen(message);
+    auto w_sector = linux_file_driver.readSector(0).value();
+    auto w_ptr = (byte *) w_sector->write_ptr(off);
+    strncpy(w_ptr, message, mess_len);
+    w_sector->sync();
+
+    auto r_sector = linux_file_driver.readSector(0).value();
+    auto r_ptr = (const byte *) w_sector->read_ptr(0);
+    ASSERT_EQ(strncmp(message, r_ptr + off, mess_len), 0);
+}
+
+TEST(LinuxFileDriverTest, OffsetBeyondSectorSize) {
+    device::LinuxFileDriver linux_file_driver(regular_file);
+    auto w_sector = linux_file_driver.readSector(0).value();
+    ASSERT_DEATH(w_sector->write_ptr(SECTOR_SIZE), ".*");
+}
+
+TEST(LinuxFileDriverTest, SectorDestructor) {
+    device::LinuxFileDriver linux_file_driver(regular_file);
+    auto mess_len = strlen(message);
+
+    {
+        auto w_sector = linux_file_driver.readSector(0).value();
+        auto w_ptr = (byte *) w_sector->write_ptr(0);
+        strncpy(w_ptr, message, mess_len);
+
+        auto r_sector = linux_file_driver.readSector(0).value();
+        auto r_ptr = (const byte *) r_sector->read_ptr(0);
+        ASSERT_GT(strncmp(message, r_ptr, mess_len), 0);
+    }
+
+    auto r_sector = linux_file_driver.readSector(0).value();
+    auto r_ptr = (const byte *) r_sector->read_ptr(0);
+    ASSERT_EQ(strncmp(message, r_ptr, mess_len), 0);
 }
 
 int main(int argc, char **argv) {
