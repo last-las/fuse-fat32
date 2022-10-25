@@ -67,9 +67,11 @@ namespace device {
 
         bool writeSectorValue(u32 sec_num, const u8 *buf) noexcept override;
 
+        bool contains(u32 sec_num) noexcept;
+
     private:
-        Device &device_;
-        util::LRUCacheMap<u32, std::array<u8, SECTOR_SIZE>> sector_cache_;
+        Device &inner_device_;
+        util::LRUCacheMap<u32, std::shared_ptr<Sector>> sector_cache_;
     };
 
 } // namespace device

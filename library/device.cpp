@@ -106,9 +106,30 @@ namespace device {
      * CacheManger
      * */
     CacheManager::CacheManager(Device &device, u32 cache_sz) noexcept
-            : device_{device}, sector_cache_(cache_sz) {}
+            : inner_device_{device}, sector_cache_(cache_sz) {}
 
-    std::optional<std::shared_ptr<Sector>> CacheManager::readSector(u32 sec_num) noexcept {}
+    std::optional<std::shared_ptr<Sector>> CacheManager::readSector(u32 sec_num) noexcept {
+        auto result = sector_cache_.get(sec_num);
+        if (result.has_value()) {
+            return {result.value()};
+        }
 
-    bool CacheManager::writeSectorValue(u32 sec_num, const u8 *buf) noexcept {}
+        result = inner_device_.readSector(sec_num);
+        if (result.has_value()) {
+            auto sector = result.value();
+            sector->modify_device(*this);
+            sector_cache_.put(sec_num, sector);
+            return sector;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    bool CacheManager::writeSectorValue(u32 sec_num, const u8 *buf) noexcept {
+        return inner_device_.writeSectorValue(sec_num, buf);
+    }
+
+    bool CacheManager::contains(u32 sec_num) noexcept {
+        return sector_cache_.get(sec_num).has_value();
+    }
 }

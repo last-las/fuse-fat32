@@ -128,6 +128,8 @@ TEST(LRUCacheMapTest, SharedPtr) {
     // TODO: std::moved
 }
 
+// TODO: add test for LRUCacheMapTest::get
+
 TEST(LinuxFileDriverTest, RegularRW) {
     device::LinuxFileDriver linux_file_driver(regular_file);
     byte val = 0x66;
@@ -210,6 +212,24 @@ TEST(LinuxFileDriverTest, SectorDestructor) {
     auto r_ptr = (const byte *) r_sector->read_ptr(0);
     ASSERT_EQ(strncmp(message, r_ptr, mess_len), 0);
 }
+
+TEST(CacheManagerTest, FetchSameSecTwice) {
+    device::LinuxFileDriver linuxFileDriver(regular_file);
+    device::CacheManager cacheManager(linuxFileDriver);
+    auto sec1 = cacheManager.readSector(0);
+    auto sec2 = cacheManager.readSector(0);
+    ASSERT_EQ(sec1, sec2);
+}
+TEST(CacheManagerTest, LRU) {
+    GTEST_SKIP();
+}
+
+// todo: test all cases in LinuxFileDriverTest for CacheManager
+TEST(CacheManagerTest, ActLikeInnerDevice) {
+    GTEST_SKIP();
+}
+
+// todo: check google test.
 
 int main(int argc, char **argv) {
     testing::AddGlobalTestEnvironment(new TestFsEnv);
