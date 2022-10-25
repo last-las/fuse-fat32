@@ -96,7 +96,7 @@ private:
     }
 };
 
-TEST(LRUCacheMapTest, BasicUsage) {
+TEST(LRUCacheMapTest, PutElement) {
     u32 max_size = 3;
     util::LRUCacheMap<u32, u32> lru_map(max_size);
     lru_map.put(1, 1);
@@ -111,6 +111,26 @@ TEST(LRUCacheMapTest, BasicUsage) {
     ASSERT_EQ(lru_map.get(4).value(), 4);
     ASSERT_EQ(lru_map.get(2).value(), 2);
     ASSERT_EQ(lru_map.get(5).value(), 5);
+}
+
+TEST(LRUCacheMapTest, GetElement) {
+    u32 max_size = 4;
+    util::LRUCacheMap<u32, u32> lru_map(max_size);
+    lru_map.put(1, 1);
+    lru_map.put(2, 2);
+    lru_map.put(3, 3);
+    lru_map.put(4, 4);
+    lru_map.get(1);
+    lru_map.get(2);
+    lru_map.put(5, 5);
+    lru_map.put(6, 6);
+
+    ASSERT_FALSE(lru_map.get(3).has_value());
+    ASSERT_FALSE(lru_map.get(4).has_value());
+    ASSERT_EQ(lru_map.get(1).value(), 1);
+    ASSERT_EQ(lru_map.get(2).value(), 2);
+    ASSERT_EQ(lru_map.get(5).value(), 5);
+    ASSERT_EQ(lru_map.get(6).value(), 6);
 }
 
 class TestObj {
@@ -221,7 +241,19 @@ TEST(CacheManagerTest, FetchSameSecTwice) {
     ASSERT_EQ(sec1, sec2);
 }
 TEST(CacheManagerTest, LRU) {
-    GTEST_SKIP();
+    device::LinuxFileDriver linuxFileDriver(regular_file);
+    device::CacheManager cacheManager(linuxFileDriver, 3);
+    cacheManager.readSector(0);
+    cacheManager.readSector(1);
+    cacheManager.readSector(2);
+    cacheManager.readSector(3);
+    cacheManager.readSector(1);
+    cacheManager.readSector(4);
+    ASSERT_FALSE(cacheManager.contains(0));
+    ASSERT_FALSE(cacheManager.contains(2));
+    ASSERT_TRUE(cacheManager.contains(3));
+    ASSERT_TRUE(cacheManager.contains(1));
+    ASSERT_TRUE(cacheManager.contains(4));
 }
 
 // todo: test all cases in LinuxFileDriverTest for CacheManager

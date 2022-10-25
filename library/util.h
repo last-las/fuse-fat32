@@ -41,6 +41,10 @@ namespace util {
         std::optional<value_t> get(key_t key) noexcept {
             auto it = caches_map_.find(key);
             if (it != caches_map_.end()) {
+                // move the item in the front of `key_value_list_`
+                auto begin = key_value_list_.begin();
+                key_value_list_.splice(begin, key_value_list_, it->second);
+                
                 return std::optional(it->second->second);
             } else {
                 return std::nullopt;
