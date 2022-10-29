@@ -9,20 +9,13 @@
 
 #include "gtest/gtest.h"
 
+#include "common.h"
+
 /**
  * The test cases for linux system calls under fuse-fat32. Some of them might fail if they are running on other filesystems.
  *
  * Google Test does not run tests in parallel, so don't worry about `errno` being overwritten by other threads.
  * */
-struct linux_dirent {
-    long d_ino;
-    off_t d_off;
-    unsigned short d_reclen;
-    char d_name[];
-};
-
-#define SEC_SIZE (0x200 * 0x8)
-#define BUF_SIZE (SEC_SIZE * 4)
 
 char buffer[BUF_SIZE];
 char buffer2[BUF_SIZE];
@@ -54,80 +47,6 @@ class TestSysCallEnv : public testing::Environment {
 public:
     ~TestSysCallEnv() override = default;
 
-    static void crtFileOrExist(const char *filename) {
-        int fd = open(filename, O_CREAT, 0644);
-        if (fd == -1 && errno != 0) {
-            printf("Fail to create file %s: %s\n", filename, strerror(errno));
-            exit(1);
-        }
-        close(fd);
-    }
-
-    static void crtDirOrExist(const char *dirname) {
-        int ret = mkdir(dirname, 0755);
-        if (ret == -1 && errno != 0) {
-            printf("Fail to create dir %s: %s\n", dirname, strerror(errno));
-            exit(1);
-        }
-    }
-
-    // Remove as more files as possible, so do not exit when unlink fails.
-    static void rmFile(const char *filename) {
-        int ret = unlink(filename);
-        if (ret == -1 && errno != 0) {
-            printf("Fail to remove file %s: %s\n", filename, strerror(errno));
-        }
-    }
-
-    // Remove as more directories as possible, so do not exit when unlink fails
-    static void rmDir(const char *dirname) {
-        int ret = rmdir(dirname);
-        if (ret == -1 && errno != 0) {
-            printf("Fail to remove dir %s: %s\n", dirname, strerror(errno));
-        }
-    }
-
-    // a simple version of "rm -rf dirname"
-    static void rmDirRecur(const char *dirname) {
-        // open dirname and chdir to it
-        int dir_fd = open(dirname, O_DIRECTORY);
-        if (dir_fd == -1) {
-            return;
-        }
-        chdir(dirname);
-
-        // remove the sub files recursively
-        struct linux_dirent *d;
-        char *buffer = new char[BUF_SIZE];
-        int nread = syscall(SYS_getdents, dir_fd, buffer, BUF_SIZE);
-        for (int bpos = 0; bpos < nread;) {
-            d = (struct linux_dirent *) (buffer + bpos);
-            if (!is_dot_path(d->d_name)) {
-                struct stat fstat_{};
-                stat(d->d_name, &fstat_);
-                if (fstat_.st_mode & S_IFDIR) {
-                    rmDirRecur(d->d_name);
-                } else {
-                    rmFile(d->d_name);
-                }
-            }
-            bpos += d->d_reclen;
-        }
-        close(dir_fd);
-        delete[]buffer;
-
-        // chdir to parent dir and remove dirname
-        chdir("..");
-        rmDir(dirname);
-    }
-
-    static bool is_dot_path(const char *path) {
-        if (strcmp(path, ".") == 0 || strcmp(path, "..") == 0) {
-            return true;
-        } else {
-            return false;
-        }
-    }
 
     void SetUp() override {
         crtDirOrExist(test_dir);

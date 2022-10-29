@@ -1,6 +1,3 @@
-#include <fcntl.h>
-#include <linux/loop.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
 #include <cstring>
 
@@ -9,6 +6,7 @@
 #include "config.h"
 #include "device.h"
 #include "util.h"
+#include "common.h"
 
 char regular_file[] = "regular_file";
 char loop_name[512];
@@ -22,8 +20,8 @@ public:
     ~TestUtilEnv() override = default;
 
     void SetUp() override {
-        add_regular_file();
-        add_loop_file();
+        add_regular_file(regular_file, regular_file_sz);
+        enable_loop = add_loop_file(loop_name, regular_file);
         if (enable_loop) {
             printf("loop enabled: %s.\n", loop_name);
         } else {
@@ -33,64 +31,9 @@ public:
 
     void TearDown() override {
         if (enable_loop) {
-            rm_loop_file();
+            rm_loop_file(loop_name);
         }
         ASSERT_EQ(unlink(regular_file), 0);
-    }
-
-private:
-    void add_regular_file() {
-        int fd = open(regular_file, O_CREAT, 0644);
-        ASSERT_GT(fd, 0);
-        ASSERT_EQ(truncate64(regular_file, regular_file_sz), 0);
-        ASSERT_EQ(close(fd), 0);
-    }
-
-    // came from "man 4 loop"
-    void add_loop_file() {
-        // find a free loop device
-        int loop_ctl_fd = open("/dev/loop-control", O_RDWR);
-        if (loop_ctl_fd == -1) {
-            perror("open: /dev/loop-control");
-            return;
-        }
-        int dev_nr = ioctl(loop_ctl_fd, LOOP_CTL_GET_FREE);
-        if (dev_nr == -1) {
-            perror("ioctl-LOOP_CTL_GET_FREE");
-            return;
-        }
-        sprintf(loop_name, "/dev/loop%d", dev_nr);
-        int loop_fd = open(loop_name, O_RDWR);
-        if (loop_fd == -1) {
-            perror("open: loop_name");
-            return;
-        }
-
-        // open `regular_file` as backend file
-        int bck_fd = open(regular_file, O_RDWR);
-        ASSERT_GT(bck_fd, 0);
-
-        // loop
-        if (ioctl(loop_fd, LOOP_SET_FD, bck_fd) == -1) {
-            perror("ioctl-LOOP_SET_FD");
-        }
-
-        close(loop_fd);
-        close(bck_fd);
-        enable_loop = true;
-    }
-
-    void rm_loop_file() {
-        int loop_fd = open(loop_name, O_RDONLY);
-        if (loop_fd == -1) {
-            perror("open: loop_name");
-            return;
-        }
-
-        if (ioctl(loop_fd, LOOP_CLR_FD) == -1) {
-            perror("ioctl-LOOP_CLR_FD");
-            return;
-        }
     }
 };
 

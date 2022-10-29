@@ -35,8 +35,8 @@ target_link_libraries(test_system_call gtest gtest_main)
 
 add_executable(test_utils test/test_utils.cpp library/device.cpp) # todo: more simple one
 target_link_libraries(test_utils gtest gtest_main)
-target_include_directories(test_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/)
+target_include_directories(test_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/test/)
 
 add_executable(test_fs test/test_fs.cpp library/device.cpp library/fs.cpp)
 target_link_libraries(test_fs gtest gtest_main)
-target_include_directories(test_fs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/)
+target_include_directories(test_fs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/test/)
