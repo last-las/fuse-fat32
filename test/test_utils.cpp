@@ -1,8 +1,6 @@
 #include <fcntl.h>
-#include <sys/types.h>
 #include <linux/loop.h>
 #include <sys/ioctl.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <cstring>
 
