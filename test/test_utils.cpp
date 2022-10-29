@@ -17,9 +17,9 @@ u64 regular_file_sz = SECTOR_SIZE * sector_num; // 32KB
 const char message[] = "hello, world!";
 bool enable_loop = false;
 
-class TestFsEnv : public testing::Environment {
+class TestUtilEnv : public testing::Environment {
 public:
-    ~TestFsEnv() override = default;
+    ~TestUtilEnv() override = default;
 
     void SetUp() override {
         add_regular_file();
@@ -290,7 +290,7 @@ TEST(CacheManagerTest, BlkDevRW) {
 // todo: check google test.
 
 int main(int argc, char **argv) {
-    testing::AddGlobalTestEnvironment(new TestFsEnv);
+    testing::AddGlobalTestEnvironment(new TestUtilEnv);
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
