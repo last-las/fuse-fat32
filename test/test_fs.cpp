@@ -7,6 +7,7 @@
 
 #include "gtest/gtest.h"
 
+#include "fat32.h"
 #include "fs.h"
 #include "common.h"
 
@@ -42,7 +43,7 @@ public:
         ASSERT_EQ(umount(mnt_point), 0);
         rm_loop_file(loop_name);
         rmDir(mnt_point);
-        rmFile(regular_file);
+        // rmFile(regular_file);
     }
 
 private:
@@ -53,6 +54,10 @@ private:
         ASSERT_EQ(ret, 0);
     }
 };
+
+TEST(FAT32Test, StructSz) {
+    ASSERT_EQ(sizeof(fat32::BPB), 90);
+}
 
 TEST(FAT32fsTest, RootDir) {
     GTEST_SKIP();
