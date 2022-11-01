@@ -57,6 +57,8 @@ private:
 
 TEST(FAT32Test, StructSz) {
     ASSERT_EQ(sizeof(fat32::BPB), 90);
+    ASSERT_EQ(sizeof(fat32::FSInfo), 512);
+    ASSERT_EQ(sizeof(fat32::ShortDirEntry), 32);
 }
 
 TEST(FAT32fsTest, RootDir) {

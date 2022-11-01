@@ -39,9 +39,15 @@ namespace fat32 {
         char BS_fil_sys_type[8];
     } __attribute__((packed));
 
-    const u32 fat32_eoc_mark = 0x0FFFFFF8;
-    const u32 cln_shut_bit_mask = 0x08000000;
-    const u32 hrd_err_bit_mask = 0x04000000;
+    const u32 KFat32EocMark = 0x0FFFFFF8;
+    const u32 KClnShutBitMask = 0x08000000;
+    const u32 KHrdErrBitMask = 0x04000000;
+    // FsInfo
+    const u32 KFsInfoLeadSig = 0x41615252;
+    const u32 KStrucSig = 0x61417272;
+    const u32 KTrailSig = 0xAA550000;
+    // Short Directory Entry
+    const u8 KAttrReadOnly = 0x01;
 
     // todo: check CountOfClusters >= 65525
     void assertFat32BPB(BPB &bpb);
@@ -84,12 +90,33 @@ namespace fat32 {
 
     void writeFATClusEntryVal(u8 *sec_buff, u32 fat_ent_offset, u32 fat_clus_entry_val);
 
+    /**
+     * EOC checker function
+     * */
     inline bool isEndOfClusChain(u32 fat_content) {
         return fat_content >= 0x0FFFFFF8;
     }
 
+    // todo
+    u8 calcSecPerClus(u64 disk_sz);
+
+    // todo
+    u32 calcFatsz(BPB &bpb);
+
     struct FSInfo {
-    };
+        u32 lead_sig;
+        byte reserved1[480];
+        u32 struc_sig;
+        u32 free_count;
+        u32 nxt_free;
+        byte reserved2[12];
+        u32 trail_sig;
+    } __attribute__((packed));
+
+    void assertFSInfo(FSInfo &fs_info);
+
+    // todo
+    FSInfo makeFSInfo();
 
 
     typedef u8 TimeTenth;
@@ -106,7 +133,17 @@ namespace fat32 {
     };
 
     struct ShortDirEntry {
-    };
+        char name[11];
+        byte attr;
+        byte rsvd;
+        u8 crt_time_tenth;
+        FatTimeStamp crt_ts;
+        FatDate lst_acc_date;
+        u16 fst_clus_high;
+        FatTimeStamp wrt_ts;
+        u16 fst_clus_low;
+        u32 file_sz;
+    }__attribute__((packed));
 
 
     struct LongDirEntry {
