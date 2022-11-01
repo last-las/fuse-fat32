@@ -43,13 +43,11 @@ namespace fat32 {
     const u32 cln_shut_bit_mask = 0x08000000;
     const u32 hrd_err_bit_mask = 0x04000000;
 
-    void assertFat32BPB(BPB &bpb) {
-        // todo: check CountOfClusters >= 65525
-    }
+    // todo: check CountOfClusters >= 65525
+    void assertFat32BPB(BPB &bpb);
 
-    BPB makeFat32BPB() {
-        // todo: make sure that CountOfClusters >= 65525
-    }
+    // todo: make sure that CountOfClusters >= 65525
+    BPB makeFat32BPB();
 
     inline u32 getFirstDataSector(BPB &bpb) {
         return bpb.BPB_resvd_sec_cnt + bpb.BPB_num_fats * bpb.BPB_FATsz32;
@@ -78,27 +76,17 @@ namespace fat32 {
         u32 fat_ent_offset;
     };
 
-    FATPos getClusPosOnFAT(BPB &bpb, u32 n) {
-        u32 fat_offset = n * 4;
-        u32 this_fat_sec_num = bpb.BPB_resvd_sec_cnt + fat_offset / bpb.BPB_bytes_per_sec;
-        u32 this_fat_ent_offset = fat_offset % bpb.BPB_bytes_per_sec;
-        FATPos pos{this_fat_sec_num, this_fat_ent_offset};
-    }
+    FATPos getClusPosOnFAT(BPB &bpb, u32 n);
 
     inline u32 readFATClusEntryVal(const u8 *sec_buff, u32 fat_ent_offset) {
         return (*((u32 *) &sec_buff[fat_ent_offset])) & 0x0FFFFFFF;
     }
 
-    void writeFATClusEntryVal(u8 *sec_buff, u32 fat_ent_offset, u32 fat_clus_entry_val) {
-        fat_clus_entry_val = fat_clus_entry_val & 0x0FFFFFFF;
-        *((u32 *) &sec_buff[fat_ent_offset]) = (*((u32 *) &sec_buff[fat_ent_offset])) & 0xF0000000;
-        *((u32 *) &sec_buff[fat_ent_offset]) = (*((u32 *) &sec_buff[fat_ent_offset])) | fat_clus_entry_val;
-    }
+    void writeFATClusEntryVal(u8 *sec_buff, u32 fat_ent_offset, u32 fat_clus_entry_val);
 
     inline bool isEndOfClusChain(u32 fat_content) {
         return fat_content >= 0x0FFFFFF8;
     }
-
 
     struct FSInfo {
     };
