@@ -21,4 +21,36 @@ namespace fat32 {
         assert(fs_info.struc_sig == KStrucSig);
         assert(fs_info.trail_sig == KTrailSig);
     }
+
+    EntryType parseEntryType(ShortDirEntry &short_dir_entry) {
+        u8 first_byte = (u8) short_dir_entry.name[0];
+        if (first_byte == 0xE5) {
+            return EntryType::KEmpty;
+        } else if (first_byte == 0x00) {
+            return EntryType::KEnd;
+        } else {
+            return EntryType::KExist;
+        }
+    }
+
+    std::string readShortEntryName(ShortDirEntry &short_dir_entry) {
+        // todo
+    }
+
+    bool containIllegalFatChr(const char *name) {
+        const u8 *ptr = (const u8 *) name;
+        u8 val;
+        while ((val = *ptr) != 0) {
+            if (val < 0x20 && val != 0x05) {
+                return false;
+            }
+            for (auto inval_byte: KInvalidFatBytes) {
+                if (val == inval_byte) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
 }

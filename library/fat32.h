@@ -48,6 +48,14 @@ namespace fat32 {
     const u32 KTrailSig = 0xAA550000;
     // Short Directory Entry
     const u8 KAttrReadOnly = 0x01;
+    const u8 KAttrHidden = 0x02;
+    const u8 KAttrSystem = 0x04;
+    const u8 KAttrVolumeID = 0x08;
+    const u8 KAttrDirectory = 0x10;
+    const u8 KAttrArchive = 0x20;
+    const u8 KAttrLongName = KAttrReadOnly | KAttrHidden | KAttrSystem | KAttrVolumeID;
+    const u8 KInvalidFatBytes[] = {0x22, 0x2A, 0x2B, 0x2C, 0x2E, 0x2F, 0x3A, 0x3B,
+                                   0x3C, 0x3D, 0x3E, 0x3F, 0x5B, 0x5C, 0x5D, 0x7c};
 
     // todo: check CountOfClusters >= 65525
     void assertFat32BPB(BPB &bpb);
@@ -145,6 +153,15 @@ namespace fat32 {
         u32 file_sz;
     }__attribute__((packed));
 
+    enum EntryType {
+        KEmpty, KEnd, KExist
+    };
+
+    EntryType parseEntryType(ShortDirEntry &short_dir_entry);
+
+    std::string readShortEntryName(ShortDirEntry &short_dir_entry);
+
+    bool containIllegalFatChr(const char *name);
 
     struct LongDirEntry {
     };

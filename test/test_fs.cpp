@@ -61,6 +61,20 @@ TEST(FAT32Test, StructSz) {
     ASSERT_EQ(sizeof(fat32::ShortDirEntry), 32);
 }
 
+TEST(FAT32Test, IllegalChr) {
+    ASSERT_TRUE(fat32::containIllegalFatChr("\\"));
+    ASSERT_TRUE(fat32::containIllegalFatChr("/"));
+    ASSERT_TRUE(fat32::containIllegalFatChr(":"));
+    ASSERT_TRUE(fat32::containIllegalFatChr("*"));
+    ASSERT_TRUE(fat32::containIllegalFatChr("?"));
+    ASSERT_TRUE(fat32::containIllegalFatChr("\""));
+    ASSERT_TRUE(fat32::containIllegalFatChr("<"));
+    ASSERT_TRUE(fat32::containIllegalFatChr(">"));
+    ASSERT_TRUE(fat32::containIllegalFatChr("|"));
+    ASSERT_FALSE(fat32::containIllegalFatChr("\x05"));
+    ASSERT_FALSE(fat32::containIllegalFatChr("..regular name"));
+}
+
 TEST(FAT32fsTest, RootDir) {
     GTEST_SKIP();
     // todo: check root dir entries
