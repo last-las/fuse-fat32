@@ -22,6 +22,10 @@ namespace fat32 {
         assert(fs_info.trail_sig == KTrailSig);
     }
 
+    FSInfo makeFSInfo() {
+        // todo
+    }
+
     EntryType parseEntryType(ShortDirEntry &short_dir_entry) {
         u8 first_byte = (u8) short_dir_entry.name[0];
         if (first_byte == 0xE5) {
@@ -34,7 +38,8 @@ namespace fat32 {
     }
 
     std::string readShortEntryName(ShortDirEntry &short_dir_entry) {
-        // todo
+        assert(parseEntryType(short_dir_entry) == EntryType::KExist);
+
     }
 
     bool containIllegalShortDirEntryChr(const char *name) {
@@ -53,5 +58,35 @@ namespace fat32 {
         }
 
         return false;
+    }
+
+    FatTimeStamp unix2DosTs(timespec unix_ts) {
+        tm *tm_ = localtime(&unix_ts.tv_sec);
+        if (tm_->tm_sec == 60) { // ignore leap sec
+            tm_->tm_sec = 59;
+        }
+
+        FatDate date = (((tm_->tm_year - 80) & 0b1111111) << 9) // bits 9-15: count of years from 1980
+                       | (((tm_->tm_mon + 1) & 0b1111) << 5) // bits 5-8: month of year, 1 = January
+                       | (tm_->tm_mday & 0b11111); // bits 0-4: day of month
+        FatTime time = ((tm_->tm_hour & 0b11111) << 11) // bits 11-15: Hours
+                       | ((tm_->tm_min & 0b111111) << 5) // bits 5-10: Minutes
+                       | ((tm_->tm_sec / 2) & 0b11111); // bits 0-4: 2-second count
+        return FatTimeStamp{time, date};
+    }
+
+    timespec dos2UnixTs(FatTimeStamp fat_ts) {
+        tm tm_;
+        tm_.tm_year = ((fat_ts.date >> 9) & 0b1111111) + 80;
+        tm_.tm_mon = ((fat_ts.date >> 5) & 0b1111) - 1;
+        tm_.tm_mday = fat_ts.date & 0b11111;
+        tm_.tm_hour = (fat_ts.time >> 11) & 0b11111;
+        tm_.tm_min = (fat_ts.time >> 5) & 0b111111;
+        tm_.tm_sec = ((fat_ts.time) & 0b11111) * 2;
+        tm_.tm_isdst = 0;
+
+        time_t sec = mktime(&tm_);
+        assert(sec != -1);
+        return timespec{sec, 0};
     }
 }

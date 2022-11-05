@@ -1,6 +1,8 @@
 #ifndef STUPID_FAT32_FAT32_H
 #define STUPID_FAT32_FAT32_H
 
+#include <ctime>
+
 #include "device.h"
 #include "util.h"
 
@@ -128,8 +130,8 @@ namespace fat32 {
 
 
     typedef u8 TimeTenth;
-    typedef short FatTime;
-    typedef short FatDate;
+    typedef u16 FatTime;
+    typedef u16 FatDate;
     struct FatTimeStamp {
         FatTime time;
         FatDate date;
@@ -139,6 +141,11 @@ namespace fat32 {
         TimeTenth tt;
         FatTimeStamp ts;
     };
+
+    FatTimeStamp unix2DosTs(timespec unix_ts);
+
+    timespec dos2UnixTs(FatTimeStamp fat_ts);
+    // todo: FatFimeStamp2
 
     struct ShortDirEntry {
         char name[11];
@@ -161,7 +168,17 @@ namespace fat32 {
 
     std::string readShortEntryName(ShortDirEntry &short_dir_entry);
 
+    // todo: fix this
     bool containIllegalShortDirEntryChr(const char *name);
+
+    inline void setEntryClusNo(ShortDirEntry &short_dir_entry, u32 clus) {
+        short_dir_entry.fst_clus_high = (u16) (clus >> 16);
+        short_dir_entry.fst_clus_low = (u16) (clus & 0xffff);
+    }
+
+    inline u32 readEntryClusNo(ShortDirEntry &short_dir_entry) {
+        return (short_dir_entry.fst_clus_high << 16) | short_dir_entry.fst_clus_low;
+    }
 
     struct LongDirEntry {
     };

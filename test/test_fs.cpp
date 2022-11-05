@@ -75,6 +75,27 @@ TEST(FAT32Test, IllegalChr) {
     ASSERT_FALSE(fat32::containIllegalShortDirEntryChr("\x05"));
 }
 
+TEST(FAT32Test, EntryClusNo) {
+    fat32::ShortDirEntry short_dir_entry{};
+    u32 clus_no = 0xdeadbeef;
+    setEntryClusNo(short_dir_entry, clus_no);
+    ASSERT_EQ(short_dir_entry.fst_clus_high, 0xdead);
+    ASSERT_EQ(short_dir_entry.fst_clus_low, 0xbeef);
+    ASSERT_EQ(readEntryClusNo(short_dir_entry), clus_no);
+}
+
+TEST(FAT32Test, unixDosCvt) {
+    timespec unix_ts;
+    ASSERT_EQ(clock_gettime(CLOCK_REALTIME, &unix_ts), 0);
+    fat32::FatTimeStamp dos_ts = fat32::unix2DosTs(unix_ts);
+    timespec parsed_unix_ts = fat32::dos2UnixTs(dos_ts);
+    timespec parsed_unix_ts2 = fat32::dos2UnixTs(fat32::unix2DosTs(parsed_unix_ts));
+
+    time_t gap = unix_ts.tv_sec - parsed_unix_ts.tv_sec;
+    ASSERT_TRUE(gap == 0 || gap == 1);
+    ASSERT_EQ(parsed_unix_ts.tv_sec, parsed_unix_ts2.tv_sec);
+}
+
 TEST(FAT32fsTest, RootDir) {
     GTEST_SKIP();
     // todo: check root dir entries
