@@ -37,20 +37,21 @@ namespace fat32 {
         // todo
     }
 
-    bool containIllegalFatChr(const char *name) {
-        const u8 *ptr = (const u8 *) name;
+    bool containIllegalShortDirEntryChr(const char *name) {
+        u8 *ptr = (u8 *) name;
         u8 val;
         while ((val = *ptr) != 0) {
             if (val < 0x20 && val != 0x05) {
-                return false;
+                return true;
             }
             for (auto inval_byte: KInvalidFatBytes) {
                 if (val == inval_byte) {
-                    return false;
+                    return true;
                 }
             }
+            ptr++;
         }
 
-        return true;
+        return false;
     }
 }

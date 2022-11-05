@@ -161,7 +161,7 @@ namespace fat32 {
 
     std::string readShortEntryName(ShortDirEntry &short_dir_entry);
 
-    bool containIllegalFatChr(const char *name);
+    bool containIllegalShortDirEntryChr(const char *name);
 
     struct LongDirEntry {
     };
