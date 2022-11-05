@@ -59,6 +59,7 @@ TEST(FAT32Test, StructSz) {
     ASSERT_EQ(sizeof(fat32::BPB), 90);
     ASSERT_EQ(sizeof(fat32::FSInfo), 512);
     ASSERT_EQ(sizeof(fat32::ShortDirEntry), 32);
+    ASSERT_EQ(sizeof(fat32::LongDirEntry), 32);
 }
 
 TEST(FAT32Test, IllegalChr) {
@@ -93,6 +94,19 @@ TEST(FAT32Test, unixDosCvt) {
 
     time_t gap = unix_ts.tv_sec - parsed_unix_ts.tv_sec;
     ASSERT_TRUE(gap == 0 || gap == 1);
+    ASSERT_EQ(parsed_unix_ts.tv_sec, parsed_unix_ts2.tv_sec);
+}
+
+TEST(FAT32Test, unixDosCvt2) {
+    timespec unix_ts;
+    ASSERT_EQ(clock_gettime(CLOCK_REALTIME, &unix_ts), 0);
+    fat32::FatTimeStamp2 dos_ts = fat32::unix2DosTs_2(unix_ts);
+    timespec parsed_unix_ts = fat32::dos2UnixTs_2(dos_ts);
+    timespec parsed_unix_ts2 = fat32::dos2UnixTs_2(fat32::unix2DosTs_2(parsed_unix_ts));
+
+    time_t sec_gap = unix_ts.tv_sec - parsed_unix_ts.tv_sec;
+    ASSERT_TRUE(sec_gap == 0 || sec_gap == 1);
+    ASSERT_EQ(unix_ts.tv_nsec / 10000000, parsed_unix_ts.tv_nsec / 10000000);
     ASSERT_EQ(parsed_unix_ts.tv_sec, parsed_unix_ts2.tv_sec);
 }
 

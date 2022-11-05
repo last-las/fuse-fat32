@@ -11,6 +11,28 @@
  * */
 
 namespace fat32 {
+    const u32 KFat32EocMark = 0x0FFFFFF8;
+    const u32 KClnShutBitMask = 0x08000000;
+    const u32 KHrdErrBitMask = 0x04000000;
+    // FsInfo
+    const u32 KFsInfoLeadSig = 0x41615252;
+    const u32 KStrucSig = 0x61417272;
+    const u32 KTrailSig = 0xAA550000;
+    // Short Directory Entry
+    const u8 KAttrReadOnly = 0x01;
+    const u8 KAttrHidden = 0x02;
+    const u8 KAttrSystem = 0x04;
+    const u8 KAttrVolumeID = 0x08;
+    const u8 KAttrDirectory = 0x10;
+    const u8 KAttrArchive = 0x20;
+    const u8 KInvalidFatBytes[] = {0x22, 0x2A, 0x2B, 0x2C, 0x2E, 0x2F, 0x3A, 0x3B,
+                                   0x3C, 0x3D, 0x3E, 0x3F, 0x5B, 0x5C, 0x5D, 0x7c};
+    // Long Directory Entry
+    const u8 KAttrLongName = KAttrReadOnly | KAttrHidden | KAttrSystem | KAttrVolumeID;
+    const u8 KAttrLongNameMask =
+            KAttrReadOnly | KAttrHidden | KAttrSystem | KAttrVolumeID | KAttrDirectory | KAttrArchive;
+    const u8 KLastLongEntry = 0x40;
+
     struct BPB {
         byte BS_jmp_boot[3];
         char BS_oem_name[8];
@@ -40,24 +62,6 @@ namespace fat32 {
         char BS_vol_lab[11];
         char BS_fil_sys_type[8];
     } __attribute__((packed));
-
-    const u32 KFat32EocMark = 0x0FFFFFF8;
-    const u32 KClnShutBitMask = 0x08000000;
-    const u32 KHrdErrBitMask = 0x04000000;
-    // FsInfo
-    const u32 KFsInfoLeadSig = 0x41615252;
-    const u32 KStrucSig = 0x61417272;
-    const u32 KTrailSig = 0xAA550000;
-    // Short Directory Entry
-    const u8 KAttrReadOnly = 0x01;
-    const u8 KAttrHidden = 0x02;
-    const u8 KAttrSystem = 0x04;
-    const u8 KAttrVolumeID = 0x08;
-    const u8 KAttrDirectory = 0x10;
-    const u8 KAttrArchive = 0x20;
-    const u8 KAttrLongName = KAttrReadOnly | KAttrHidden | KAttrSystem | KAttrVolumeID;
-    const u8 KInvalidFatBytes[] = {0x22, 0x2A, 0x2B, 0x2C, 0x2E, 0x2F, 0x3A, 0x3B,
-                                   0x3C, 0x3D, 0x3E, 0x3F, 0x5B, 0x5C, 0x5D, 0x7c};
 
     // todo: check CountOfClusters >= 65525
     void assertFat32BPB(BPB &bpb);
@@ -128,7 +132,6 @@ namespace fat32 {
     // todo
     FSInfo makeFSInfo();
 
-
     typedef u8 TimeTenth;
     typedef u16 FatTime;
     typedef u16 FatDate;
@@ -145,10 +148,13 @@ namespace fat32 {
     FatTimeStamp unix2DosTs(timespec unix_ts);
 
     timespec dos2UnixTs(FatTimeStamp fat_ts);
-    // todo: FatFimeStamp2
+
+    FatTimeStamp2 unix2DosTs_2(timespec unix_ts);
+
+    timespec dos2UnixTs_2(FatTimeStamp2 fat_ts2);
 
     struct ShortDirEntry {
-        char name[11];
+        u8 name[11];
         byte attr;
         byte rsvd;
         u8 crt_time_tenth;
@@ -181,7 +187,20 @@ namespace fat32 {
     }
 
     struct LongDirEntry {
-    };
+        u8 ord;
+        u8 name1[10];
+        u8 attr;
+        u8 type;
+        u8 chk_sum;
+        u8 name2[12];
+        u16 fst_clus_low;
+        u8 name3[4];
+    }__attribute__((packed));
+
+    u8 chkSum(const u8 *short_entry_name);
+
+    // the input long_name should be encoded in unicode.
+    std::string genShortNameFrom(const char *long_name);
 
     class FAT {
     public:

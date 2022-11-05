@@ -89,4 +89,40 @@ namespace fat32 {
         assert(sec != -1);
         return timespec{sec, 0};
     }
+
+    FatTimeStamp2 unix2DosTs_2(timespec unix_ts) {
+        FatTimeStamp fat_ts = unix2DosTs(unix_ts);
+        u8 tenths_of_msec = (u8) (unix_ts.tv_nsec / 10000000);
+        if (unix_ts.tv_sec % 2 == 1) {
+            tenths_of_msec += 100;
+        }
+        return FatTimeStamp2{tenths_of_msec, fat_ts};
+    }
+
+    timespec dos2UnixTs_2(FatTimeStamp2 fat_ts2) {
+        assert(fat_ts2.tt >= 0 && fat_ts2.tt <= 199);
+        timespec unix_ts = dos2UnixTs(fat_ts2.ts);
+        u8 tt = fat_ts2.tt;
+        if (tt > 100) {
+            unix_ts.tv_sec += 1;
+            tt -= 100;
+        }
+        unix_ts.tv_nsec = tt * 10000000;
+        return unix_ts;
+    }
+
+    u8 chkSum(const u8 *short_entry_name) {
+        u8 sum = 0;
+        for (short name_len = 11; name_len != 0; name_len--) {
+            sum = ((sum & 1) ? 0x80 : 0) + (sum >> 1) + *short_entry_name++;
+        }
+
+        return sum;
+    }
+
+    std::string genShortNameFrom(const char *long_name) {
+        std::string short_name;
+        char *ptr = (char *)long_name;
+        // todo
+    }
 }
