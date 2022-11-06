@@ -3,6 +3,21 @@
 #include "fat32.h"
 
 namespace fat32 {
+    bool isValidFat32BPB(BPB &bpb) {
+        // check BS_jmpBoot
+        if ((bpb.BS_jmp_boot[0] != 0xEB || bpb.BS_jmp_boot[2] != 0x90)
+            && bpb.BS_jmp_boot[0] != 0Xe9) {
+            return false;
+        }
+
+        // FAT32 cluster cnt must be greater than 65525
+        if (getCountOfClusters(bpb) < 65525) {
+            return false;
+        }
+
+        return true;
+    }
+
     FATPos getClusPosOnFAT(BPB &bpb, u32 n) {
         u32 fat_offset = n * 4;
         u32 this_fat_sec_num = bpb.BPB_resvd_sec_cnt + fat_offset / bpb.BPB_bytes_per_sec;
@@ -120,9 +135,80 @@ namespace fat32 {
         return sum;
     }
 
-    std::string genShortNameFrom(const char *long_name) {
-        std::string short_name;
-        char *ptr = (char *)long_name;
-        // todo
+    u64 FAT::availClusCnt() noexcept {
+        if (this->avail_clus_cnt_.has_value()) {
+            return this->avail_clus_cnt_.value();
+        }
+
+        u64 avail_clus_cnt = 0;
+        u32 cnt_of_clus = 0;
+        for (u32 i = this->start_sec_no_; i < this->end_sec_no() && cnt_of_clus < this->cnt_of_clus_; ++i) {
+            auto sector = this->device_.readSector(i).value();
+            const u32 *fat_ent_arr = (const u32 *) sector->read_ptr(0);
+            for (u32 j = 0; j < SECTOR_SIZE / KFATEntSz && cnt_of_clus < this->cnt_of_clus_; ++j, ++cnt_of_clus) {
+                if ((fat_ent_arr[i] & 0x0FFFFFFF) == 0) {
+                    avail_clus_cnt += 1;
+                }
+            }
+        }
+
+        this->avail_clus_cnt_ = {avail_clus_cnt};
+        return avail_clus_cnt;
+    }
+
+    void FAT::inc_avail_cnt(u64 no) noexcept {
+        if (this->avail_clus_cnt_.has_value()) {
+            this->avail_clus_cnt_.value() += no;
+        }
+    }
+
+    void FAT::dec_avail_cnt(u64 no) noexcept {
+        if (this->avail_clus_cnt_.has_value()) {
+            this->avail_clus_cnt_.value() -= no;
+        }
+    }
+
+    std::optional<u32> FAT::allocClus() noexcept {
+        if (this->free_count_ != 0xFFFFFFFF) {
+            u32 free_cnt = this->free_count_;
+            this->free_count_ = 0xFFFFFFFF;
+            return {free_cnt};
+        }
+
+        if (this->availClusCnt() == 0) {
+            return std::nullopt;
+        }
+
+        u32 cnt_of_clus = 0;
+        for (u32 i = this->start_sec_no_; i < this->end_sec_no() && cnt_of_clus < this->cnt_of_clus_; ++i) {
+            auto sector = this->device_.readSector(i).value();
+            const u32 *fat_ent_arr = (const u32 *) sector->read_ptr(0);
+            for (u32 j = 0; j < SECTOR_SIZE / KFATEntSz && cnt_of_clus < this->cnt_of_clus_; ++j, ++cnt_of_clus) {
+                if ((fat_ent_arr[i] & 0x0FFFFFFF) == 0) { // find
+                    this->dec_avail_cnt(1);
+                    *(u32 *) sector->write_ptr(j * KFATEntSz) = KFat32EocMark;
+                    return {cnt_of_clus};
+                }
+            }
+        }
+
+        assert(false); // unreachable
+    }
+
+    bool FAT::freeClus(u32 fst_clus) noexcept {
+
+    }
+
+    std::list<u32> FAT::readClusChains(u32 fst_clus) noexcept {
+        std::list<u32> clus_chains;
+        clus_chains.push_back(fst_clus);
+        u32 cur_clus = fst_clus;
+
+        while (cur_clus != KFat32EocMark) {
+            // todo: support dynamic sector size!!!
+        }
+    }
+
+    bool FAT::resize(u32 fst_clus, u32 clus_num) noexcept {
     }
 }

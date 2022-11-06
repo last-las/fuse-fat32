@@ -14,6 +14,7 @@ namespace fat32 {
     const u32 KFat32EocMark = 0x0FFFFFF8;
     const u32 KClnShutBitMask = 0x08000000;
     const u32 KHrdErrBitMask = 0x04000000;
+    const u32 KFATEntSz = sizeof(u32);
     // FsInfo
     const u32 KFsInfoLeadSig = 0x41615252;
     const u32 KStrucSig = 0x61417272;
@@ -34,7 +35,7 @@ namespace fat32 {
     const u8 KLastLongEntry = 0x40;
 
     struct BPB {
-        byte BS_jmp_boot[3];
+        u8 BS_jmp_boot[3];
         char BS_oem_name[8];
         u16 BPB_bytes_per_sec;
         u8 BPB_sec_per_clus;
@@ -54,7 +55,7 @@ namespace fat32 {
         u32 BPB_root_clus;
         u16 BPB_fs_info;
         u16 BPB_bk_boot_sec;
-        byte BPB_reserved[12];
+        u8 BPB_reserved[12];
         u8 BS_drv_num;
         u8 BS_reserved1;
         u8 BS_boot_sig;
@@ -64,10 +65,14 @@ namespace fat32 {
     } __attribute__((packed));
 
     // todo: check CountOfClusters >= 65525
-    void assertFat32BPB(BPB &bpb);
+    bool isValidFat32BPB(BPB &bpb);
 
     // todo: make sure that CountOfClusters >= 65525
     BPB makeFat32BPB();
+
+    inline u32 getFirstFATSector(BPB &bpb, u32 n) {
+        return bpb.BPB_resvd_sec_cnt + n * bpb.BPB_FATsz32;
+    }
 
     inline u32 getFirstDataSector(BPB &bpb) {
         return bpb.BPB_resvd_sec_cnt + bpb.BPB_num_fats * bpb.BPB_FATsz32;
@@ -199,25 +204,37 @@ namespace fat32 {
 
     u8 chkSum(const u8 *short_entry_name);
 
-    // the input long_name should be encoded in unicode.
-    std::string genShortNameFrom(const char *long_name);
+    util::string_gbk genShortNameFrom(util::string_utf8 &utf8_str);
 
     class FAT {
     public:
-        u64 availClusCnt() noexcept {}
+        FAT(u32 start_sec_no, u32 fat_sz, u32 cnt_of_clus, u32 free_count, device::Device &device) noexcept
+                : start_sec_no_{start_sec_no}, fat_sec_num_{fat_sz}, cnt_of_clus_{cnt_of_clus},
+                  free_count_{free_count}, device_{device} {}
 
-        u32 allocClus() noexcept {}
+        u64 availClusCnt() noexcept;
 
-        bool freeClus(u32 fst_clus) noexcept {}
+        void inc_avail_cnt(u64 no) noexcept;
 
-        std::list<u32> readClusChains(u32 fst_clus) noexcept {}
+        void dec_avail_cnt(u64 no) noexcept;
 
-        bool resize(u32 fst_clus, u32 clus_num) noexcept {}
+        std::optional<u32> allocClus() noexcept;
+
+        bool freeClus(u32 fst_clus) noexcept;
+
+        std::list<u32> readClusChains(u32 fst_clus) noexcept;
+
+        bool resize(u32 fst_clus, u32 clus_num) noexcept;
 
     private:
-        u32 start_sec_;
-        u32 fat_sz_;
+        u32 start_sec_no_;
+        u32 fat_sec_num_;
+        u32 cnt_of_clus_;
+        u32 free_count_;
+        std::optional<u64> avail_clus_cnt_;
         device::Device &device_;
+
+        u32 end_sec_no() const { return this->start_sec_no_ + this->fat_sec_num_; }
     };
 
 

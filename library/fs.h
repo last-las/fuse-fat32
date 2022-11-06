@@ -98,6 +98,7 @@ namespace fs {
         void closeFile(u64 ino) noexcept;
 
     private:
+        fat32::BPB bpb;
         device::Device &device_;
         util::LRUCacheMap<u64, shared_ptr<File>> cached_lookup_files_{20};
         std::unordered_map<u64, shared_ptr<File>> cached_open_files_;

@@ -110,6 +110,19 @@ TEST(FAT32Test, unixDosCvt2) {
     ASSERT_EQ(parsed_unix_ts.tv_sec, parsed_unix_ts2.tv_sec);
 }
 
+TEST(FAT32Test, FATAvailClusCnt) {
+    // TODO: statfs; copy the fat table and test on that
+    // GTEST_SKIP();
+    device::LinuxFileDriver device(regular_file);
+    fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
+    u32 start_sec_no = fat32::getFirstFATSector(bpb, 0);
+    u32 cnt_of_clus = fat32::getCountOfClusters(bpb);
+    fat32::FAT fat = fat32::FAT(start_sec_no, bpb.BPB_FATsz32, cnt_of_clus, 0xffffffff, device); // todo: fix here
+    printf("start_sec_no: %u\n", start_sec_no);
+    printf("calc: %lld\n", fat.availClusCnt());
+    printf("%u\n", fat.allocClus().value());
+}
+
 TEST(FAT32fsTest, RootDir) {
     GTEST_SKIP();
     // todo: check root dir entries
