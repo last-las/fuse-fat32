@@ -5,6 +5,7 @@
 #include <optional>
 #include <unordered_map>
 
+// todo: move to namespace util
 typedef unsigned long long u64;
 typedef unsigned int u32;
 typedef unsigned short u16;
@@ -13,6 +14,10 @@ typedef char byte; // todo: byte should not be char but unsigned char!
 typedef u32 size;
 
 namespace util {
+    typedef std::string string_utf8;
+    typedef std::string string_gbk;
+    typedef std::string string_unicode;
+
     template<typename key_t, typename value_t>
     class LRUCacheMap {
     public:
@@ -28,7 +33,7 @@ namespace util {
                 key_value_list_.erase(it->second);
             }
             key_value_list_.push_front(std::pair(key, value));
-            caches_map_[key]= key_value_list_.begin();
+            caches_map_[key] = key_value_list_.begin();
 
             if (caches_map_.size() > max_size_) {
                 auto removed_item = key_value_list_.end();
@@ -44,7 +49,7 @@ namespace util {
                 // move the item in the front of `key_value_list_`
                 auto begin = key_value_list_.begin();
                 key_value_list_.splice(begin, key_value_list_, it->second);
-                
+
                 return std::optional(it->second->second);
             } else {
                 return std::nullopt;
@@ -56,6 +61,14 @@ namespace util {
         std::unordered_map<key_t, list_iterator_t> caches_map_;
         std::list<key_value_pair_t> key_value_list_;
     };
+
+    std::optional<string_gbk> utf8ToGbk(string_utf8 &utf8_str) noexcept;
+
+    std::optional<string_utf8> gbkToUtf8(string_gbk &gbk_str) noexcept;
+
+    std::optional<string_unicode> utf8ToUnicode(string_utf8 &utf8_str) noexcept;
+
+    std::optional<string_utf8> unicodeToUtf8(string_unicode &unicode_str) noexcept;
 } // namespace util
 
 #endif //STUPID_FAT32_UTIL_H

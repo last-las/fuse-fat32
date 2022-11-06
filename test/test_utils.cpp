@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <cstring>
+#include <cerrno>
 
 #include "gtest/gtest.h"
 
@@ -228,6 +229,33 @@ TEST(CacheManagerTest, BlkDevRW) {
     device::LinuxFileDriver linuxFileDriver(regular_file);
     device::CacheManager cacheManager(linuxFileDriver);
     testBlkDevRWOnDevice(cacheManager);
+}
+
+TEST(IconvTest, Utf8AndGbk) {
+    util::string_utf8 utf8_str = "\xe4\xbd\xa0\xe5\xa5\xbd,\xe4\xb8\x96\xe7\x95\x8c!"; // encoding of "你好,世界!" in utf8
+    util::string_gbk gbk_str = "\xc4\xe3\xba\xc3,\xca\xc0\xbd\xe7!"; // encoding of "你好,世界!" in gbk
+    util::string_utf8 incomplete_utf8_str = "\xe4\xbd\xa0\xe5\xa5";
+    util::string_gbk incomplete_gbk_str = "\xc4\xe3\xba";
+
+    // from utf8 to gbk
+    auto result1 = util::utf8ToGbk(utf8_str);
+    ASSERT_TRUE(result1.has_value()) << strerror(errno);
+    util::string_gbk parsed_gbk_str = result1.value();
+    ASSERT_EQ(gbk_str, parsed_gbk_str);
+
+    // from gbk to utf8
+    auto result2 = util::gbkToUtf8(gbk_str);
+    ASSERT_TRUE(result2.has_value()) << strerror(errno);
+    util::string_utf8 parsed_utf8_str = result2.value();
+    ASSERT_EQ(utf8_str, parsed_utf8_str);
+
+    // error
+    errno = 0;
+    ASSERT_FALSE(util::utf8ToGbk(incomplete_utf8_str).has_value());
+    ASSERT_EQ(errno, EINVAL);
+    errno = 0;
+    ASSERT_FALSE(util::gbkToUtf8(incomplete_gbk_str).has_value());
+    ASSERT_EQ(errno, EINVAL);
 }
 
 // todo: check google test.
