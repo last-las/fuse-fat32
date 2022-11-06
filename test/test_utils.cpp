@@ -258,6 +258,34 @@ TEST(IconvTest, Utf8AndGbk) {
     ASSERT_EQ(errno, EINVAL);
 }
 
+TEST(IconvTest, Utf8AndUtf16) {
+    using namespace std::string_literals;
+    util::string_utf8 utf8_str = "\xe4\xbd\xa0\xe5\xa5\xbd,\xe4\xb8\x96\xe7\x95\x8c!"; // encoding of "你好,世界!" in utf8
+    util::string_utf16 utf16_str = "`O}Y,\x00\x16NLu!\x00"s; // encoding of "你好,世界!" in utf16
+    util::string_utf8 incomplete_utf8_str = "\xe4\xbd\xa0\xe5\xa5";
+    util::string_utf16 incomplete_utf16_str = "`O}"s;
+
+    // from utf8 to utf16
+    auto result1 = util::utf8ToUtf16(utf8_str);
+    ASSERT_TRUE(result1.has_value()) << strerror(errno);
+    util::string_utf16 parsed_utf16_str = result1.value();
+    ASSERT_EQ(utf16_str, parsed_utf16_str);
+
+    // from utf16 to utf8
+    auto result2 = util::utf16ToUtf8(utf16_str);
+    ASSERT_TRUE(result2.has_value()) << strerror(errno);
+    util::string_utf8 parsed_utf8_str = result2.value();
+    ASSERT_EQ(utf8_str, parsed_utf8_str);
+
+    // error
+    errno = 0;
+    ASSERT_FALSE(util::utf8ToUtf16(incomplete_utf8_str).has_value());
+    ASSERT_EQ(errno, EINVAL);
+    errno = 0;
+    ASSERT_FALSE(util::utf16ToUtf8(incomplete_utf16_str).has_value());
+    ASSERT_EQ(errno, EINVAL);
+}
+
 // todo: check google test.
 
 int main(int argc, char **argv) {

@@ -16,7 +16,7 @@ typedef u32 size;
 namespace util {
     typedef std::string string_utf8;
     typedef std::string string_gbk;
-    typedef std::string string_unicode;
+    typedef std::string string_utf16;
 
     template<typename key_t, typename value_t>
     class LRUCacheMap {
@@ -66,9 +66,9 @@ namespace util {
 
     std::optional<string_utf8> gbkToUtf8(string_gbk &gbk_str) noexcept;
 
-    std::optional<string_unicode> utf8ToUnicode(string_utf8 &utf8_str) noexcept;
+    std::optional<string_utf16> utf8ToUtf16(string_utf8 &utf8_str) noexcept;
 
-    std::optional<string_utf8> unicodeToUtf8(string_unicode &unicode_str) noexcept;
+    std::optional<string_utf8> utf16ToUtf8(string_utf16 &utf16_str) noexcept;
 } // namespace util
 
 #endif //STUPID_FAT32_UTIL_H
