@@ -1,6 +1,8 @@
 #ifndef STUPID_FAT32_DEVICE_H
 #define STUPID_FAT32_DEVICE_H
 
+#include <vector>
+
 #include <memory>
 #include <string>
 #include <utility>
@@ -20,7 +22,7 @@ namespace device {
     // TODO: comment here.
     class Sector {
     public:
-        Sector(u32 sec_num, Device &device) noexcept;
+        Sector(u32 sec_num, u32 sec_sz, Device &device) noexcept;
 
         void mark_dirty() noexcept;
 
@@ -36,7 +38,8 @@ namespace device {
 
     private:
         u32 sec_num_;
-        u8 value_[SECTOR_SIZE];
+        u32 sec_sz_;
+        std::vector<u8> value_;
         Device &device_;
         bool dirty_;
     };
@@ -48,7 +51,7 @@ namespace device {
      * */
     class LinuxFileDriver : public Device {
     public:
-        explicit LinuxFileDriver(std::string file_path) noexcept;
+        explicit LinuxFileDriver(std::string file_path, u32 sec_sz) noexcept;
 
         std::optional<std::shared_ptr<Sector>> readSector(u32 sec_num) noexcept override;
 
@@ -57,6 +60,7 @@ namespace device {
     private:
         std::string file_path_;
         u64 device_sz_;
+        u32 sec_sz_;
     };
 
     class CacheManager : public Device {

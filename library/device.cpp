@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <cassert>
 #include <cstring>
+#include <vector>
 
 #include "device.h"
 
@@ -14,9 +15,9 @@ namespace device {
     /**
      * Sector
      * */
-    Sector::Sector(u32 sec_num, Device &device) noexcept
-            : sec_num_{sec_num}, device_{device}, dirty_(false) {
-        // std::memcpy(value_, value, SECTOR_SIZE);
+    Sector::Sector(u32 sec_num, u32 sec_sz, Device &device) noexcept
+            : sec_num_{sec_num}, sec_sz_{sec_sz}, device_{device}, dirty_(false) {
+        value_ = std::vector<u8>(sec_sz_);
     }
 
     void Sector::mark_dirty() noexcept {
@@ -24,19 +25,19 @@ namespace device {
     }
 
     const void *Sector::read_ptr(u32 offset) noexcept {
-        assert(offset < SECTOR_SIZE);
+        assert(offset < sec_sz_); // todo: remove the assert and wrap the result with std::optional
         return &value_[offset];
     }
 
     const void *Sector::write_ptr(u32 offset) noexcept {
-        assert(offset < SECTOR_SIZE);
+        assert(offset < sec_sz_);
         dirty_ = true;
         return &value_[offset];
     }
 
     void Sector::sync() noexcept {
         if (dirty_) {
-            device_.writeSectorValue(sec_num_, value_);
+            device_.writeSectorValue(sec_num_, &value_[0]);
             dirty_ = false;
         }
     }
@@ -52,7 +53,8 @@ namespace device {
     /**
      * LinuxFileDriver
      * */
-    LinuxFileDriver::LinuxFileDriver(std::string file_path) noexcept: file_path_{std::move(file_path)} {
+    LinuxFileDriver::LinuxFileDriver(std::string file_path, u32 sec_sz) noexcept
+            : file_path_{std::move(file_path)}, sec_sz_{sec_sz} {
         int fd = open(file_path_.c_str(), O_RDONLY);
         assert(fd > 0);
 
@@ -71,32 +73,32 @@ namespace device {
     }
 
     std::optional<std::shared_ptr<Sector>> LinuxFileDriver::readSector(u32 sec_num) noexcept {
-        if ((sec_num + 1) * SECTOR_SIZE > device_sz_) {
+        if ((sec_num + 1) * sec_sz_ > device_sz_) {
             return std::nullopt;
         }
 
         int fd = open(file_path_.c_str(), O_RDONLY);
         assert(fd > 0);
-        off_t offset = lseek(fd, sec_num * SECTOR_SIZE, SEEK_SET);
-        assert(offset == sec_num * SECTOR_SIZE);
-        std::shared_ptr<Sector> sector = std::make_shared<Sector>(sec_num, *this);
-        ssize_t cnt = read(fd, (char *) sector->read_ptr(0), SECTOR_SIZE);
-        assert(cnt == SECTOR_SIZE);
+        off_t offset = lseek(fd, sec_num * sec_sz_, SEEK_SET);
+        assert(offset == sec_num * sec_sz_);
+        std::shared_ptr<Sector> sector = std::make_shared<Sector>(sec_num, sec_sz_, *this);
+        ssize_t cnt = read(fd, (char *) sector->read_ptr(0), sec_sz_);
+        assert(cnt == sec_sz_);
         assert(close(fd) == 0);
         return {sector};
     }
 
     bool LinuxFileDriver::writeSectorValue(u32 sec_num, const u8 *buf) noexcept {
-        if ((sec_num + 1) * SECTOR_SIZE > device_sz_) {
+        if ((sec_num + 1) * sec_sz_ > device_sz_) {
             return false;
         }
 
         int fd = open(file_path_.c_str(), O_WRONLY);
         assert(fd > 0);
-        off_t offset = lseek(fd, sec_num * SECTOR_SIZE, SEEK_SET);
-        assert(offset == sec_num * SECTOR_SIZE);
-        ssize_t cnt = write(fd, buf, SECTOR_SIZE);
-        assert(cnt == SECTOR_SIZE);
+        off_t offset = lseek(fd, sec_num * sec_sz_, SEEK_SET);
+        assert(offset == sec_num * sec_sz_);
+        ssize_t cnt = write(fd, buf, sec_sz_);
+        assert(cnt == sec_sz_);
         assert(close(fd) == 0);
 
         return true;

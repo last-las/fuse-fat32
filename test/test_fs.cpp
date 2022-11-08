@@ -34,13 +34,13 @@ public:
         // todo: add multiple files and directories in this fat32 fs
 
         // create a global fs::FAT32fs object
-        device::LinuxFileDriver linuxFileDriver(regular_file);
+        device::LinuxFileDriver linuxFileDriver(regular_file, SECTOR_SIZE);
         device::CacheManager cacheManager(linuxFileDriver);
         filesystem = std::make_unique<fs::FAT32fs>(fs::FAT32fs(cacheManager));
     }
 
     void TearDown() override {
-        ASSERT_EQ(umount(mnt_point), 0);
+        ASSERT_EQ(umount(mnt_point), 0) << strerror(errno);
         rm_loop_file(loop_name);
         rmDir(mnt_point);
         // rmFile(regular_file);
@@ -113,7 +113,7 @@ TEST(FAT32Test, unixDosCvt2) {
 TEST(FAT32Test, FATAvailClusCnt) {
     // TODO: statfs; copy the fat table and test on that
     // GTEST_SKIP();
-    device::LinuxFileDriver device(regular_file);
+    device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
     fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
     u32 start_sec_no = fat32::getFirstFATSector(bpb, 0);
     u32 cnt_of_clus = fat32::getCountOfClusters(bpb);
