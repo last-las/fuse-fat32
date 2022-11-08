@@ -135,6 +135,16 @@ namespace fat32 {
         return sum;
     }
 
+    /**
+     * FAT implement
+     * */
+    FAT::FAT(BPB &bpb, u32 free_count, device::Device &device) noexcept: bpb_{bpb}, device_{device} {
+        start_sec_no_ = getFirstFATSector(bpb, 0);
+        fat_sec_num_ = bpb.BPB_FATsz32;
+        cnt_of_clus_ = getCountOfClusters(bpb);
+        free_count_ = free_count;
+    }
+
     u64 FAT::availClusCnt() noexcept {
         if (this->avail_clus_cnt_.has_value()) {
             return this->avail_clus_cnt_.value();
@@ -185,8 +195,7 @@ namespace fat32 {
             const u32 *fat_ent_arr = (const u32 *) sector->read_ptr(0);
             for (u32 j = 0; j < SECTOR_SIZE / KFATEntSz && cnt_of_clus < this->cnt_of_clus_; ++j, ++cnt_of_clus) {
                 if ((fat_ent_arr[i] & 0x0FFFFFFF) == 0) { // find
-                    this->dec_avail_cnt(1);
-                    *(u32 *) sector->write_ptr(j * KFATEntSz) = KFat32EocMark;
+                    writeFatEntry(i, j, KFat32EocMark);
                     return {cnt_of_clus};
                 }
             }
@@ -201,12 +210,21 @@ namespace fat32 {
 
     std::list<u32> FAT::readClusChains(u32 fst_clus) noexcept {
         std::list<u32> clus_chains;
-        clus_chains.push_back(fst_clus);
         u32 cur_clus = fst_clus;
 
-        while (cur_clus != KFat32EocMark) {
-            // todo: support dynamic sector size!!!
+        while (!isEndOfClusChain(cur_clus)) {
+            clus_chains.push_back(fst_clus);
+            FATPos fat_pos = getClusPosOnFAT(bpb_, cur_clus);
+            auto sector = this->device_.readSector(fat_pos.fat_sec_num).value();
+            cur_clus = readFATClusEntryVal((u8 *)sector->read_ptr(0), fat_pos.fat_ent_offset);
         }
+
+        return clus_chains;
+    }
+
+    void FAT::writeFatEntry(u32 sec_no, u32 fat_ent_no, u32 val) noexcept {
+        auto sector = this->device_.readSector(sec_no).value();
+        writeFATClusEntryVal((u8 *)sector->write_ptr(0), fat_ent_no * KFATEntSz, val);
     }
 
     bool FAT::resize(u32 fst_clus, u32 clus_num) noexcept {

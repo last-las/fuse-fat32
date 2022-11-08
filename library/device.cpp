@@ -16,9 +16,7 @@ namespace device {
      * Sector
      * */
     Sector::Sector(u32 sec_num, u32 sec_sz, Device &device) noexcept
-            : sec_num_{sec_num}, sec_sz_{sec_sz}, device_{device}, dirty_(false) {
-        value_ = std::vector<u8>(sec_sz_);
-    }
+            : sec_num_{sec_num}, sec_sz_{sec_sz}, device_{device}, dirty_(false), value_(std::vector<u8>(sec_sz)) {}
 
     void Sector::mark_dirty() noexcept {
         dirty_ = true;

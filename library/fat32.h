@@ -208,9 +208,7 @@ namespace fat32 {
 
     class FAT {
     public:
-        FAT(u32 start_sec_no, u32 fat_sz, u32 cnt_of_clus, u32 free_count, device::Device &device) noexcept
-                : start_sec_no_{start_sec_no}, fat_sec_num_{fat_sz}, cnt_of_clus_{cnt_of_clus},
-                  free_count_{free_count}, device_{device} {}
+        FAT(BPB &bpb, u32 free_count, device::Device &device) noexcept;
 
         u64 availClusCnt() noexcept;
 
@@ -224,12 +222,16 @@ namespace fat32 {
 
         std::list<u32> readClusChains(u32 fst_clus) noexcept;
 
+        // todo: perform writing on all the fats
+        void writeFatEntry(u32 sec_no, u32 fat_ent_no, u32 val) noexcept;
+
         bool resize(u32 fst_clus, u32 clus_num) noexcept;
 
     private:
         u32 start_sec_no_;
         u32 fat_sec_num_;
         u32 cnt_of_clus_;
+        BPB &bpb_;
         u32 free_count_;
         std::optional<u64> avail_clus_cnt_;
         device::Device &device_;

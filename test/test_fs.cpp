@@ -116,8 +116,7 @@ TEST(FAT32Test, FATAvailClusCnt) {
     device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
     fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
     u32 start_sec_no = fat32::getFirstFATSector(bpb, 0);
-    u32 cnt_of_clus = fat32::getCountOfClusters(bpb);
-    fat32::FAT fat = fat32::FAT(start_sec_no, bpb.BPB_FATsz32, cnt_of_clus, 0xffffffff, device); // todo: fix here
+    fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device); // todo: fix here
     printf("start_sec_no: %u\n", start_sec_no);
     printf("calc: %lld\n", fat.availClusCnt());
     printf("%u\n", fat.allocClus().value());
