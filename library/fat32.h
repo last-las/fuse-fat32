@@ -216,16 +216,19 @@ namespace fat32 {
 
         void dec_avail_cnt(u64 no) noexcept;
 
-        std::optional<u32> allocClus() noexcept;
+        std::optional<std::vector<u32>> allocClus(u32 require_clus_num) noexcept;
 
-        bool freeClus(u32 fst_clus) noexcept;
+        void freeClus(u32 fst_clus) noexcept;
 
-        std::list<u32> readClusChains(u32 fst_clus) noexcept;
-
-        // todo: perform writing on all the fats
-        void writeFatEntry(u32 sec_no, u32 fat_ent_no, u32 val) noexcept;
+        std::vector<u32> readClusChains(u32 fst_clus) noexcept;
 
         bool resize(u32 fst_clus, u32 clus_num) noexcept;
+
+        // todo: perform writing on all the fats
+        void writeFatEntry(u32 sec_no, u32 fat_ent_offset, u32 val) noexcept;
+
+        // todo: perform reading on all the fats
+        u32 readFatEntry(u32 sec_no, u32 fat_ent_no) noexcept;
 
     private:
         u32 start_sec_no_;

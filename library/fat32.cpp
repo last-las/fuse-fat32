@@ -153,10 +153,8 @@ namespace fat32 {
         u64 avail_clus_cnt = 0;
         u32 cnt_of_clus = 0;
         for (u32 i = this->start_sec_no_; i < this->end_sec_no() && cnt_of_clus < this->cnt_of_clus_; ++i) {
-            auto sector = this->device_.readSector(i).value();
-            const u32 *fat_ent_arr = (const u32 *) sector->read_ptr(0);
             for (u32 j = 0; j < SECTOR_SIZE / KFATEntSz && cnt_of_clus < this->cnt_of_clus_; ++j, ++cnt_of_clus) {
-                if ((fat_ent_arr[i] & 0x0FFFFFFF) == 0) {
+                if (readFatEntry(i, j * KFATEntSz) == 0) {
                     avail_clus_cnt += 1;
                 }
             }
@@ -178,25 +176,46 @@ namespace fat32 {
         }
     }
 
-    std::optional<u32> FAT::allocClus() noexcept {
-        if (this->free_count_ != 0xFFFFFFFF) {
-            u32 free_cnt = this->free_count_;
-            this->free_count_ = 0xFFFFFFFF;
-            return {free_cnt};
-        }
-
-        if (this->availClusCnt() == 0) {
+    std::optional<std::vector<u32>> FAT::allocClus(u32 require_clus_num) noexcept {
+        if (this->availClusCnt() < require_clus_num) {
             return std::nullopt;
         }
 
+        FATPos fat_pos;
+        u32 alloc_num = 0;
         u32 cnt_of_clus = 0;
+        u32 pre_clus = 0, cur_clus = 0;
+        std::vector<u32> clus_chain;
+        if (this->free_count_ != 0xFFFFFFFF) {
+            cur_clus = this->free_count_;
+            this->free_count_ = 0xFFFFFFFF;
+            clus_chain.push_back(this->free_count_);
+            dec_avail_cnt(1);
+            alloc_num += 1;
+            if (alloc_num == require_clus_num) {
+                fat_pos = getClusPosOnFAT(bpb_, cur_clus);
+                writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, KFat32EocMark);
+                return {clus_chain};
+            }
+        }
+
         for (u32 i = this->start_sec_no_; i < this->end_sec_no() && cnt_of_clus < this->cnt_of_clus_; ++i) {
-            auto sector = this->device_.readSector(i).value();
-            const u32 *fat_ent_arr = (const u32 *) sector->read_ptr(0);
             for (u32 j = 0; j < SECTOR_SIZE / KFATEntSz && cnt_of_clus < this->cnt_of_clus_; ++j, ++cnt_of_clus) {
-                if ((fat_ent_arr[i] & 0x0FFFFFFF) == 0) { // find
-                    writeFatEntry(i, j, KFat32EocMark);
-                    return {cnt_of_clus};
+                if (readFatEntry(i, j * KFATEntSz) == 0) { // find
+                    pre_clus = cur_clus;
+                    cur_clus = cnt_of_clus;
+                    if (pre_clus != 0) {
+                        fat_pos = getClusPosOnFAT(bpb_, pre_clus);
+                        writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, cur_clus);
+                    }
+                    clus_chain.push_back(cnt_of_clus);
+                    dec_avail_cnt(1);
+                    alloc_num += 1;
+                    if (alloc_num == require_clus_num) {
+                        fat_pos = getClusPosOnFAT(bpb_, cur_clus);
+                        writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, KFat32EocMark);
+                        return {clus_chain};
+                    }
                 }
             }
         }
@@ -204,29 +223,70 @@ namespace fat32 {
         assert(false); // unreachable
     }
 
-    bool FAT::freeClus(u32 fst_clus) noexcept {
-
+    void FAT::freeClus(u32 fst_clus) noexcept {
+        u32 cur_clus = fst_clus;
+        while (!isEndOfClusChain(cur_clus)) {
+            FATPos fat_pos = getClusPosOnFAT(bpb_, cur_clus);
+            cur_clus = readFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset);
+            writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, 0); // free
+            inc_avail_cnt(1);
+        }
     }
 
-    std::list<u32> FAT::readClusChains(u32 fst_clus) noexcept {
-        std::list<u32> clus_chains;
+    std::vector<u32> FAT::readClusChains(u32 fst_clus) noexcept {
+        std::vector<u32> clus_chains;
         u32 cur_clus = fst_clus;
 
         while (!isEndOfClusChain(cur_clus)) {
-            clus_chains.push_back(fst_clus);
+            clus_chains.push_back(cur_clus);
             FATPos fat_pos = getClusPosOnFAT(bpb_, cur_clus);
-            auto sector = this->device_.readSector(fat_pos.fat_sec_num).value();
-            cur_clus = readFATClusEntryVal((u8 *)sector->read_ptr(0), fat_pos.fat_ent_offset);
+            cur_clus = readFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset);
         }
 
         return clus_chains;
     }
 
-    void FAT::writeFatEntry(u32 sec_no, u32 fat_ent_no, u32 val) noexcept {
-        auto sector = this->device_.readSector(sec_no).value();
-        writeFATClusEntryVal((u8 *)sector->write_ptr(0), fat_ent_no * KFATEntSz, val);
+    bool FAT::resize(u32 fst_clus, u32 clus_num) noexcept {
+        FATPos fat_pos;
+        u32 pre_clus = fst_clus;
+        u32 cur_clus = fst_clus;
+        u32 clus_cnt = 0;
+        while (!isEndOfClusChain(cur_clus)) {
+            pre_clus = cur_clus;
+            fat_pos = getClusPosOnFAT(bpb_, cur_clus);
+            cur_clus = readFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset);
+            clus_cnt++;
+            if (clus_cnt > clus_num) { // free (clus_cnt - clus_num) sectors
+                fat_pos = getClusPosOnFAT(bpb_, pre_clus);
+                writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, 0);
+                dec_avail_cnt(1);
+            } else if (clus_cnt == clus_num) {
+                fat_pos = getClusPosOnFAT(bpb_, pre_clus);
+                writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, KFat32EocMark);
+            }
+        }
+
+        if (clus_cnt < clus_num) { // alloc (clus_num - clus_cnt) sectors
+            auto result = allocClus(clus_num - clus_cnt);
+            if (!result.has_value()) {
+                return false;
+            }
+            auto clus_chain = result.value();
+            u32 alloc_fst_clus = clus_chain[0];
+            fat_pos = getClusPosOnFAT(bpb_, pre_clus);
+            writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, alloc_fst_clus);
+        }
+
+        return true;
     }
 
-    bool FAT::resize(u32 fst_clus, u32 clus_num) noexcept {
+    void FAT::writeFatEntry(u32 sec_no, u32 fat_ent_offset, u32 val) noexcept {
+        auto sector = this->device_.readSector(sec_no).value();
+        writeFATClusEntryVal((u8 *) sector->write_ptr(0), fat_ent_offset, val);
+    }
+
+    u32 FAT::readFatEntry(u32 sec_no, u32 fat_ent_offset) noexcept {
+        auto sector = this->device_.readSector(sec_no).value();
+        return readFATClusEntryVal((const u8 *) sector->read_ptr(0), fat_ent_offset);
     }
 }

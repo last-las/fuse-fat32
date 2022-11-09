@@ -119,7 +119,11 @@ TEST(FAT32Test, FATAvailClusCnt) {
     fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device); // todo: fix here
     printf("start_sec_no: %u\n", start_sec_no);
     printf("calc: %lld\n", fat.availClusCnt());
-    printf("%u\n", fat.allocClus().value());
+    auto alloc_clus_chain = fat.allocClus(10).value();
+    for (const auto &clus_no: alloc_clus_chain) {
+        printf("%d ", clus_no);
+    }
+    printf("\n");
 }
 
 TEST(FAT32fsTest, RootDir) {
