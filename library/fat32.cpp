@@ -188,8 +188,8 @@ namespace fat32 {
         std::vector<u32> clus_chain;
         if (this->free_count_ != 0xFFFFFFFF) {
             cur_clus = this->free_count_;
+            clus_chain.push_back(cur_clus);
             this->free_count_ = 0xFFFFFFFF;
-            clus_chain.push_back(this->free_count_);
             dec_avail_cnt(1);
             alloc_num += 1;
             if (alloc_num == require_clus_num) {

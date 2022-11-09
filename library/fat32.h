@@ -212,12 +212,9 @@ namespace fat32 {
 
         u64 availClusCnt() noexcept;
 
-        void inc_avail_cnt(u64 no) noexcept;
-
-        void dec_avail_cnt(u64 no) noexcept;
-
         std::optional<std::vector<u32>> allocClus(u32 require_clus_num) noexcept;
 
+        // fst_clus should only be a file's first cluster
         void freeClus(u32 fst_clus) noexcept;
 
         std::vector<u32> readClusChains(u32 fst_clus) noexcept;
@@ -240,6 +237,10 @@ namespace fat32 {
         device::Device &device_;
 
         u32 end_sec_no() const { return this->start_sec_no_ + this->fat_sec_num_; }
+
+        void inc_avail_cnt(u64 no) noexcept;
+
+        void dec_avail_cnt(u64 no) noexcept;
     };
 
 
