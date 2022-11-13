@@ -7,6 +7,10 @@
 #include <cstdio>
 #include <dirent.h>
 #include <syscall.h>
+#include <linux/loop.h>
+#include <sys/ioctl.h>
+#include <sys/mount.h>
+#include <unistd.h>
 
 #include "gtest/gtest.h"
 
@@ -14,6 +18,11 @@
 
 #define SEC_SIZE (0x200 * 0x8)
 #define BUF_SIZE (SEC_SIZE * 4)
+
+u64 block_sz = 1024 * 1024 * 1024; // 1G
+char regular_file[] = "regular_file";
+char loop_name[512];
+char mnt_point[] = "fat32_mnt";
 
 struct linux_dirent {
     long d_ino;
@@ -99,15 +108,15 @@ void rmDirRecur(const char *dirname) {
 }
 
 
-void add_regular_file(const char *regular_file, u64 regular_file_sz) {
-    int fd = open(regular_file, O_CREAT, 0644);
+void add_regular_file(const char *reg_file, u64 reg_file_sz) {
+    int fd = open(reg_file, O_CREAT, 0644);
     ASSERT_GT(fd, 0);
-    ASSERT_EQ(truncate64(regular_file, regular_file_sz), 0);
+    ASSERT_EQ(truncate64(reg_file, reg_file_sz), 0);
     ASSERT_EQ(close(fd), 0);
 }
 
 // came from "man 4 loop"
-bool add_loop_file(char *loop_name, const char *regular_file) {
+bool add_loop_file(char *loop_name_, const char *regular_file_) {
     // find a free loop device
     int loop_ctl_fd = open("/dev/loop-control", O_RDWR);
     if (loop_ctl_fd == -1) {
@@ -119,17 +128,17 @@ bool add_loop_file(char *loop_name, const char *regular_file) {
         perror("ioctl-LOOP_CTL_GET_FREE");
         return false;
     }
-    sprintf(loop_name, "/dev/loop%d", dev_nr);
-    int loop_fd = open(loop_name, O_RDWR);
+    sprintf(loop_name_, "/dev/loop%d", dev_nr);
+    int loop_fd = open(loop_name_, O_RDWR);
     if (loop_fd == -1) {
-        perror("open: loop_name");
+        perror("open: loop_name_");
         return false;
     }
 
-    // open `regular_file` as backend file
-    int bck_fd = open(regular_file, O_RDWR);
+    // open `regular_file_` as backend file
+    int bck_fd = open(regular_file_, O_RDWR);
     if (bck_fd < 0) {
-        perror("open: regular_file");
+        perror("open: regular_file_");
         return false;
     }
 
@@ -143,10 +152,10 @@ bool add_loop_file(char *loop_name, const char *regular_file) {
     return true;
 }
 
-void rm_loop_file(const char *loop_name) {
-    int loop_fd = open(loop_name, O_RDONLY);
+void rm_loop_file(const char *loop_name_) {
+    int loop_fd = open(loop_name_, O_RDONLY);
     if (loop_fd == -1) {
-        perror("open: loop_name");
+        perror("open: loop_name_");
         return;
     }
 
@@ -155,5 +164,40 @@ void rm_loop_file(const char *loop_name) {
         return;
     }
 }
+
+class Fat32Filesystem {
+public:
+    Fat32Filesystem() {
+        // create and mount a fat32 filesystem
+        add_regular_file(regular_file, block_sz);
+        if (!add_loop_file(loop_name, regular_file)) {
+            printf("Add loop file failed, skip the following tests\n");
+            exit(1);
+        }
+        crtDirOrExist(mnt_point);
+        mkfs_fat_on(loop_name);
+        if (mount(loop_name, mnt_point, "vfat", 0, nullptr) != 0) {
+            printf("Mount failed, skip the following tests\n");
+            exit(1);
+        }
+    }
+
+    ~Fat32Filesystem() {
+        if (umount(mnt_point) != 0) {
+            printf("errno:%d %s\n", errno, strerror(errno));
+        }
+        rm_loop_file(loop_name);
+        rmDir(mnt_point);
+        rmFile(regular_file);
+    }
+
+private:
+    static void mkfs_fat_on(const char *device) {
+        char command[64];
+        sprintf(command, "mkfs.fat %s", device);
+        int ret = system(command);
+        ASSERT_EQ(ret, 0);
+    }
+};
 
 #endif //STUPID_FAT32_COMMON_H

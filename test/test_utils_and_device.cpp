@@ -9,8 +9,6 @@
 #include "util.h"
 #include "common.h"
 
-char regular_file[] = "regular_file";
-char loop_name[512];
 u32 sector_num = 64;
 u64 regular_file_sz = SECTOR_SIZE * sector_num; // 32KB
 const char message[] = "hello, world!";

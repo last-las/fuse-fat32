@@ -33,10 +33,14 @@ add_subdirectory(googletest)
 add_executable(test_system_call test/test_system_call.cpp)
 target_link_libraries(test_system_call gtest gtest_main)
 
-add_executable(test_utils test/test_utils.cpp library/device.cpp library/util.cpp) # todo: more simple one
-target_link_libraries(test_utils gtest gtest_main)
-target_include_directories(test_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/test/)
+add_executable(test_utils_and_device test/test_utils_and_device.cpp library/device.cpp library/util.cpp) # todo: more simple one
+target_link_libraries(test_utils_and_device gtest gtest_main)
+target_include_directories(test_utils_and_device PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/test/)
 
-add_executable(test_fs test/test_fs.cpp library/device.cpp library/fs.cpp library/fat32.cpp)
+add_executable(test_fat32 test/test_fat32.cpp library/device.cpp library/fs.cpp library/fat32.cpp)
+target_link_libraries(test_fat32 gtest gtest_main)
+target_include_directories(test_fat32 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/test/)
+
+add_executable(test_fs test/test_fs.cpp)
 target_link_libraries(test_fs gtest gtest_main)
 target_include_directories(test_fs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/test/)
