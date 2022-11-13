@@ -19,7 +19,7 @@
 #define SEC_SIZE (0x200 * 0x8)
 #define BUF_SIZE (SEC_SIZE * 4)
 
-u64 block_sz = 1024 * 1024 * 1024; // 1G
+u64 block_sz = 1024 * 1024 * 512; // 512MB
 char regular_file[] = "regular_file";
 char loop_name[512];
 char mnt_point[] = "fat32_mnt";
@@ -168,6 +168,10 @@ void rm_loop_file(const char *loop_name_) {
 class Fat32Filesystem {
 public:
     Fat32Filesystem() {
+        if (block_sz < 512 * 1024 * 1024) {
+            printf("mk.fat will create fat16 when fat sz is less than 512MB!");
+            exit(1);
+        }
         // create and mount a fat32 filesystem
         add_regular_file(regular_file, block_sz);
         if (!add_loop_file(loop_name, regular_file)) {

@@ -15,6 +15,11 @@ namespace fat32 {
             return false;
         }
 
+        // some field must be zero
+        if (bpb.BPB_FATsz16 != 0) {
+            return false;
+        }
+
         return true;
     }
 
