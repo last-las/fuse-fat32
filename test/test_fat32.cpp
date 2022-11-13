@@ -9,26 +9,17 @@
 #include "device.h"
 #include "common.h"
 
+static std::vector<u8> fat_snapshot;
+static u32 start_sec_no_;
+static u32 fat_sec_no_;
+static u32 fat_num_;
+
 /**
  * The test case requires mkfs.fat to be installed.
  * */
-class FATTest : public testing::Test, Fat32Filesystem {
+class TestFat32Env : public testing::Environment, Fat32Filesystem {
 public:
-    static bool isEmptyFAT() {
-        device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
-        u8 const *snapshot_ptr = &fat_snapshot[0];
-        for (u32 sec_no = start_sec_no_; sec_no < start_sec_no_ + fat_sec_no_ * fat_num_; sec_no++) {
-            auto sector = device.readSector(sec_no).value();
-            if (memcmp(snapshot_ptr, sector->read_ptr(0), SECTOR_SIZE) != 0) {
-                return false;
-            }
-            snapshot_ptr += SECTOR_SIZE;
-        }
-
-        return true;
-    }
-protected:
-    static void SetUpTestSuite() {
+    TestFat32Env() {
         device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
         fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
         start_sec_no_ = fat32::getFirstFATSector(bpb, 0);
@@ -44,13 +35,20 @@ protected:
             snapshot_ptr += SECTOR_SIZE;
         }
     }
-
-
-    static std::vector<u8> fat_snapshot;
-    static u32 start_sec_no_;
-    static u32 fat_sec_no_;
-    static u32 fat_num_;
 };
+
+static bool isEmptyFAT() {
+    device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
+    u8 const *snapshot_ptr = &fat_snapshot[0];
+    for (u32 sec_no = start_sec_no_; sec_no < start_sec_no_ + fat_sec_no_ * fat_num_; sec_no++) {
+        auto sector = device.readSector(sec_no).value();
+        if (memcmp(snapshot_ptr, sector->read_ptr(0), SECTOR_SIZE) != 0) {
+            return false;
+        }
+        snapshot_ptr += SECTOR_SIZE;
+    }
+    return true;
+}
 
 
 TEST(FAT32Test, StructSz) {
@@ -108,7 +106,7 @@ TEST(FAT32Test, unixDosCvt2) {
     ASSERT_EQ(parsed_unix_ts.tv_sec, parsed_unix_ts2.tv_sec);
 }
 
-TEST_F(FATTest, AvailClusCnt) {
+TEST(FAT32Test, AvailClusCnt) {
     device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
     fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
     fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device);
@@ -121,7 +119,7 @@ TEST_F(FATTest, AvailClusCnt) {
     // todo: alloc,free and then check.
 }
 
-TEST_F(FATTest, AllocFree) {
+TEST(FAT32Test, AllocFree) {
     device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
     fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
     fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device);
@@ -133,13 +131,13 @@ TEST_F(FATTest, AllocFree) {
     clus_chain = fat.allocClus(10).value();
     fst_clus = clus_chain[0];
     fat.freeClus(fst_clus);
-    ASSERT_TRUE(FATTest::isEmptyFAT());
+    ASSERT_TRUE(isEmptyFAT());
 
     // large alloc
     clus_chain = fat.allocClus(avail_clus_cnt).value();
     fst_clus = clus_chain[0];
     fat.freeClus(fst_clus);
-    ASSERT_TRUE(FATTest::isEmptyFAT());
+    ASSERT_TRUE(isEmptyFAT());
 
     // random alloc
     ASSERT_EQ(fat.allocClus(100).value()[0], 3);
@@ -151,7 +149,7 @@ TEST_F(FATTest, AllocFree) {
     fat.freeClus(3);
     fat.freeClus(103);
     fat.freeClus(203);
-    ASSERT_TRUE(FATTest::isEmptyFAT());
+    ASSERT_TRUE(isEmptyFAT());
 
     // failed alloc
     ASSERT_FALSE(fat.allocClus(avail_clus_cnt + 1).has_value());
@@ -160,7 +158,7 @@ TEST_F(FATTest, AllocFree) {
     ASSERT_EQ(avail_clus_cnt, fat.availClusCnt());
 }
 
-TEST_F(FATTest, SetFreeCount) {
+TEST(FAT32Test, SetFreeCount) {
     u32 free_clus_no = 5;
     device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
     fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
@@ -175,10 +173,10 @@ TEST_F(FATTest, SetFreeCount) {
 
     // clear
     fat.freeClus(clus_chain[0]);
-    ASSERT_TRUE(FATTest::isEmptyFAT());
+    ASSERT_TRUE(isEmptyFAT());
 }
 
-TEST_F(FATTest, ReadClusChain) {
+TEST(FAT32Test, ReadClusChain) {
     device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
     fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
     fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device);
@@ -190,10 +188,10 @@ TEST_F(FATTest, ReadClusChain) {
 
     // clear
     fat.freeClus(clus_chain[0]);
-    ASSERT_TRUE(FATTest::isEmptyFAT());
+    ASSERT_TRUE(isEmptyFAT());
 }
 
-TEST_F(FATTest, Resize) {
+TEST(FAT32Test, Resize) {
     device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
     fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
     fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device);
@@ -211,12 +209,12 @@ TEST_F(FATTest, Resize) {
 
     // clear
     fat.freeClus(fst_clus);
-    ASSERT_TRUE(FATTest::isEmptyFAT());
+    ASSERT_TRUE(isEmptyFAT());
 }
 
 
 int main(int argc, char **argv) {
-    // testing::AddGlobalTestEnvironment(new Fat32Filesystem);
+    testing::AddGlobalTestEnvironment(new TestFat32Env);
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
