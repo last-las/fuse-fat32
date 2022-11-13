@@ -110,13 +110,18 @@ TEST(FAT32Test, AvailClusCnt) {
     device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
     fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
     fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device);
-
     struct statfs fs_stat{};
     ASSERT_EQ(statfs(mnt_point, &fs_stat), 0);
 
-    u64 clus_cnt = fat.availClusCnt();
-    ASSERT_EQ(clus_cnt * bpb.BPB_sec_per_clus * SECTOR_SIZE, fs_stat.f_bsize * fs_stat.f_bavail);
-    // todo: alloc,free and then check.
+    // check
+    u64 clus_cnt = fat.availClusCnt() + 2; // linux fat driver seems to treat the two reserved clusters as available
+    ASSERT_EQ(clus_cnt * bpb.BPB_sec_per_clus * SECTOR_SIZE, fs_stat.f_bsize * fs_stat.f_bfree);
+
+    // alloc, free ant check again
+    auto clus_chain = fat.allocClus(100).value();
+    fat.freeClus(clus_chain[0]);
+    clus_cnt = fat.availClusCnt() + 2;
+    ASSERT_EQ(clus_cnt * bpb.BPB_sec_per_clus * SECTOR_SIZE, fs_stat.f_bsize * fs_stat.f_bfree);
 }
 
 TEST(FAT32Test, AllocFree) {
