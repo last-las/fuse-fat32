@@ -208,7 +208,7 @@ namespace fat32 {
 
     class FAT {
     public:
-        FAT(BPB &bpb, u32 free_count, device::Device &device) noexcept;
+        FAT(BPB bpb, u32 free_count, device::Device &device) noexcept;
 
         u64 availClusCnt() noexcept;
 
@@ -231,7 +231,7 @@ namespace fat32 {
         u32 start_sec_no_;
         u32 fat_sec_num_;
         u32 cnt_of_clus_;
-        BPB &bpb_;
+        BPB bpb_;
         u32 free_count_;
         std::optional<u64> avail_clus_cnt_;
         device::Device &device_;

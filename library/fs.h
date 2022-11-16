@@ -11,15 +11,18 @@ namespace fs {
     using std::optional;
     using fat32::FatTimeStamp, fat32::FatTimeStamp2;
 
+    class FAT32fs;
+
     class File {
     public:
-
-        u64 read(byte *buf, u64 size, u64 offset) noexcept;
-
         /**
          * Return a null-terminated filename pointer.
          * */
+        File(u32 parent_clus, u32 meta_entry_num, u32 fst_clus, FAT32fs &fs, std::string name) noexcept;
+
         const char *name() noexcept;
+
+        u64 read(byte *buf, u64 size, u64 offset) noexcept;
 
         u64 write(const byte *buf, u64 size, u64 offset) noexcept;
 
@@ -35,19 +38,45 @@ namespace fs {
 
         bool isDir() noexcept;
 
+        // todo: merge markDeleted into renameTo.
         void markDeleted() noexcept;
 
         u64 ino() noexcept;
 
-        // modify parent_sec_, entry_num_ and filename to target's value
+        // modify parent_sec_, meta_entry_num_ and filename to target's value
         void renameTo(shared_ptr<File> target) noexcept;
+
+        /**
+         * Read the nth sector of current file(the first sector is 0), or return nullptr when overflowed.
+         * */
+        std::optional<std::shared_ptr<device::Sector>> readSector(u32 n) noexcept;
+
+        /**
+         * Return the nth sector number of current file(the first sector is 0), or return nullptr when overflowed.
+         * */
+        std::optional<u32> sector_no(u32 n) noexcept;
 
         virtual ~File() = default;
 
     private:
-        u32 parent_sec_;
-        u32 entry_num_;
+        /**
+         * Return the reference of the cluster chain, using a lazy strategy.
+         * */
+        std::vector<u32> &read_clus_chain() noexcept;
+
+        u32 parent_clus_;
+        /**
+         * Current file's short directory entry number in parent cluster
+         * */
+        u32 meta_entry_num_;
+        u32 fst_clus_;
+        FAT32fs &fs_;
+        std::string name_;
         bool is_deleted_ = false;
+        /**
+         * This field should never be used, use read_clus_chain() instead.
+         * */
+        std::optional<std::vector<u32>> clus_chain_;
     };
 
     class Directory : public File {
@@ -75,7 +104,7 @@ namespace fs {
     class FAT32fs {
     public:
         // TODO: make the constructor private.
-        explicit FAT32fs(device::Device &device) noexcept;
+        FAT32fs(fat32::BPB bpb, fat32::FAT fat, device::Device &device) noexcept;
 
         static FAT32fs from(device::Device &device) noexcept;
 
@@ -97,9 +126,17 @@ namespace fs {
          * */
         void closeFile(u64 ino) noexcept;
 
-    private:
-        fat32::BPB bpb;
+        fat32::BPB &bpb() noexcept;
+
+        fat32::FAT &fat() noexcept;
+
+        device::Device &device() noexcept;
+
+    protected:
+        fat32::BPB bpb_;
+        fat32::FAT fat_;
         device::Device &device_;
+    private:
         util::LRUCacheMap<u64, shared_ptr<File>> cached_lookup_files_{20};
         std::unordered_map<u64, shared_ptr<File>> cached_open_files_;
     };

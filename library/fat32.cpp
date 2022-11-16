@@ -143,7 +143,7 @@ namespace fat32 {
     /**
      * FAT implement
      * */
-    FAT::FAT(BPB &bpb, u32 free_count, device::Device &device) noexcept: bpb_{bpb}, device_{device} {
+    FAT::FAT(BPB bpb, u32 free_count, device::Device &device) noexcept: bpb_{bpb}, device_{device} {
         start_sec_no_ = getFirstFATSector(bpb, 0);
         fat_sec_num_ = bpb.BPB_FATsz32;
         cnt_of_clus_ = getCountOfClusters(bpb);
