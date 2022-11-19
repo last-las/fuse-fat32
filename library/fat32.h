@@ -10,6 +10,7 @@
  * For simplicity, Fat8/16 is not supported here.
  * */
 
+// todo: organize the structure of this file.
 namespace fat32 {
     const u32 KFat32EocMark = 0x0FFFFFF8;
     const u32 KClnShutBitMask = 0x08000000;
@@ -87,6 +88,10 @@ namespace fat32 {
         return bpb.BPB_tot_sec32 - (bpb.BPB_resvd_sec_cnt + bpb.BPB_num_fats * bpb.BPB_FATsz32 + root_dir_sectors);
     }
 
+    inline u32 bytesPerClus(BPB &bpb) {
+        return bpb.BPB_sec_per_clus * bpb.BPB_bytes_per_sec;
+    }
+
     /**
      * Note that the CountOfClusters value is the count of data clusters starting at cluster 2,
      * so the maximum valid cluster number for the volume is CountOfClusters + 1, and the "count of clusters including
@@ -143,12 +148,12 @@ namespace fat32 {
     struct FatTimeStamp {
         FatTime time;
         FatDate date;
-    };
+    }__attribute__((packed));
 
     struct FatTimeStamp2 {
         TimeTenth tt;
         FatTimeStamp ts;
-    };
+    }__attribute__((packed));
 
     FatTimeStamp unix2DosTs(timespec unix_ts);
 
@@ -162,8 +167,7 @@ namespace fat32 {
         u8 name[11];
         byte attr;
         byte rsvd;
-        u8 crt_time_tenth;
-        FatTimeStamp crt_ts;
+        FatTimeStamp2 crt_ts2;
         FatDate lst_acc_date;
         u16 fst_clus_high;
         FatTimeStamp wrt_ts;
@@ -242,8 +246,6 @@ namespace fat32 {
 
         void dec_avail_cnt(u64 no) noexcept;
     };
-
-
 } // namespace fat32
 
 #endif //STUPID_FAT32_FAT32_H

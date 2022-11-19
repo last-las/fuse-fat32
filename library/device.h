@@ -28,7 +28,7 @@ namespace device {
 
         const void *read_ptr(u32 offset) noexcept;
 
-        const void *write_ptr(u32 offset) noexcept;
+        void *write_ptr(u32 offset) noexcept;
 
         void sync() noexcept;
 

@@ -27,7 +27,7 @@ namespace device {
         return &value_[offset];
     }
 
-    const void *Sector::write_ptr(u32 offset) noexcept {
+    void *Sector::write_ptr(u32 offset) noexcept {
         assert(offset < sec_sz_);
         dirty_ = true;
         return &value_[offset];

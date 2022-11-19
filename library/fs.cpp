@@ -7,9 +7,11 @@ namespace fs {
     /**
      * File
      * */
-    File::File(u32 parent_clus, u32 meta_entry_num, u32 fst_clus, fs::FAT32fs &fs, std::string name) noexcept:
-            parent_clus_{parent_clus}, meta_entry_num_{meta_entry_num}, fst_clus_{fst_clus}, fs_{fs},
-            name_{std::move(name)} {}
+    File::File(u32 parent_clus, u32 fst_entry_num, u32 fst_clus, fs::FAT32fs &fs, std::string name,
+               const fat32::ShortDirEntry *meta_entry) noexcept
+            : parent_clus_{parent_clus}, fst_entry_num_{fst_entry_num}, fst_clus_{fst_clus}, fs_{fs},
+              name_{std::move(name)}, crt_time_{meta_entry->crt_ts2}, acc_date_{meta_entry->lst_acc_date},
+              wrt_time_{meta_entry->wrt_ts}, file_sz_{meta_entry->file_sz} {}
 
     const char *File::name() noexcept {
         return this->name_.c_str();
@@ -19,45 +21,88 @@ namespace fs {
         fat32::BPB &bpb = fs_.bpb();
         u32 off_in_sec = offset / bpb.BPB_bytes_per_sec;
         u32 off_in_bytes = offset % bpb.BPB_bytes_per_sec;
-        u32 read_sec_no = off_in_sec;
-        if (!readSector(read_sec_no).has_value()) { // offset has exceeded the file size, return zero.
+        u32 sec_no = off_in_sec;
+        if (!readSector(sec_no).has_value()) { // offset has exceeded the file size, return zero.
             return 0;
         }
 
         u64 remained_sz = size;
-        byte *read_ptr = buf;
-        auto sector = readSector(read_sec_no).value();
+        byte *wrt_ptr = buf;
+        auto sector = readSector(sec_no).value();
+        u64 wrt_sz = std::min(remained_sz, (u64) (bpb.BPB_bytes_per_sec - off_in_bytes));
+        memcpy(wrt_ptr, sector->read_ptr(off_in_bytes), wrt_sz);
+        sec_no += 1;
+        wrt_ptr += wrt_sz;
+        remained_sz -= wrt_sz;
+        for (; remained_sz > 0 && readSector(sec_no).has_value();
+               sec_no++, wrt_ptr += wrt_sz, remained_sz -= wrt_sz) {
+            sector = readSector(sec_no).value();
+            wrt_sz = std::min((u64) bpb.BPB_bytes_per_sec, remained_sz);
+            memcpy(wrt_ptr, sector->read_ptr(0), wrt_sz);
+        }
+        return wrt_ptr - buf;
+    }
+
+    u64 File::write(const byte *buf, u64 size, u64 offset) noexcept {
+        fat32::BPB &bpb = fs_.bpb();
+        u32 off_in_sec = offset / bpb.BPB_bytes_per_sec;
+        u32 off_in_bytes = offset % bpb.BPB_bytes_per_sec;
+        u32 sec_no = off_in_sec;
+        if (!readSector(sec_no).has_value()) { // offset exceeded, return.
+            return 0;
+        }
+
+        u64 remained_sz = size;
+        const byte *read_ptr = buf;
+        auto sector = readSector(sec_no).value();
         u64 read_sz = std::min(remained_sz, (u64) (bpb.BPB_bytes_per_sec - off_in_bytes));
-        memcpy(read_ptr, sector->read_ptr(off_in_bytes), read_sz);
-        read_sec_no += 1;
+        memcpy(sector->write_ptr(off_in_bytes), read_ptr, read_sz);
+        sec_no += 1;
         read_ptr += read_sz;
         remained_sz -= read_sz;
-        for (; remained_sz > 0 && readSector(read_sec_no).has_value();
-               read_sec_no++, read_ptr += read_sz, remained_sz -= read_sz) {
-            sector = readSector(read_sec_no).value();
+        for (; remained_sz > 0 && readSector(sec_no).has_value();
+               sec_no++, read_ptr += read_sz, remained_sz -= read_sz) {
+            sector = readSector(sec_no).value();
             read_sz = std::min((u64) bpb.BPB_bytes_per_sec, remained_sz);
-            memcpy(read_ptr, sector->read_ptr(0), read_sz);
+            memcpy(sector->write_ptr(0), read_ptr, read_sz);
         }
         return read_ptr - buf;
     }
 
-    u64 File::write(const byte *buf, u64 size, u64 offset) noexcept {}
+    void File::sync(bool sync_meta) noexcept {
+        if (sync_meta) {
+            u32 fst_clus = parent_clus_;
+            // 1. traverse the entry, until we find the short dir entry
+            // 2. write to the dir entry
+        }
+    }
 
-    void File::sync(bool sync_meta) noexcept {}
+    bool File::truncate(u32 length) noexcept {
+        u32 clus_num = (length == 0 ? 0 : length - 1) / fat32::bytesPerClus(fs_.bpb()) + 1;
+        fs_.fat().resize(fst_clus_, clus_num);
+    }
 
-    bool File::truncate(u32 length) noexcept {}
+    void File::setCrtTime(FatTimeStamp2 ts) noexcept {
+        crt_time_ = ts;
+    }
 
-    void File::setCrtTime(FatTimeStamp2 ts) noexcept {}
+    void File::setAccTime(FatTimeStamp ts) noexcept {
+        acc_date_ = ts.date;
+    }
 
-    void File::setAccTime(FatTimeStamp ts) noexcept {}
+    void File::setWrtTime(FatTimeStamp ts) noexcept {
+        wrt_time_ = ts;
+    }
 
-    void File::setWrtTime(FatTimeStamp ts) noexcept {}
-
-    bool File::isDir() noexcept {}
+    bool File::isDir() noexcept {
+        return false;
+    }
 
     void File::markDeleted() noexcept {}
 
-    u64 File::ino() noexcept {}
+    u64 File::ino() noexcept {
+        return ((u64) parent_clus_ << 32) | fst_entry_num_;
+    }
 
     void File::renameTo(shared_ptr<File> target) noexcept {}
 
@@ -90,6 +135,10 @@ namespace fs {
         return this->clus_chain_.value();
     }
 
+    File::~File() noexcept {
+        sync(true);
+    }
+
     /**
      * Directory
      * */
@@ -107,6 +156,10 @@ namespace fs {
 
 
     bool Directory::isEmpty() noexcept {}
+
+    bool Directory::isDir() noexcept {
+        return true;
+    }
 
     /**
      * Filesystem

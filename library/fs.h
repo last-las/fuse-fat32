@@ -18,7 +18,8 @@ namespace fs {
         /**
          * Return a null-terminated filename pointer.
          * */
-        File(u32 parent_clus, u32 meta_entry_num, u32 fst_clus, FAT32fs &fs, std::string name) noexcept;
+        File(u32 parent_clus, u32 fst_entry_num, u32 fst_clus, FAT32fs &fs, std::string name,
+             const fat32::ShortDirEntry *meta_entry) noexcept;
 
         const char *name() noexcept;
 
@@ -36,7 +37,7 @@ namespace fs {
 
         void setWrtTime(FatTimeStamp ts) noexcept;
 
-        bool isDir() noexcept;
+        virtual bool isDir() noexcept;
 
         // todo: merge markDeleted into renameTo.
         void markDeleted() noexcept;
@@ -56,7 +57,7 @@ namespace fs {
          * */
         std::optional<u32> sector_no(u32 n) noexcept;
 
-        virtual ~File() = default;
+        virtual ~File() noexcept;
 
     private:
         /**
@@ -64,11 +65,16 @@ namespace fs {
          * */
         std::vector<u32> &read_clus_chain() noexcept;
 
+        fat32::FatTimeStamp2 crt_time_;
+        fat32::FatDate acc_date_;
+        fat32::FatTimeStamp wrt_time_;
+        u32 file_sz_;
+
         u32 parent_clus_;
         /**
-         * Current file's short directory entry number in parent cluster
+         * Current file's first directory entry number in parent cluster
          * */
-        u32 meta_entry_num_;
+        u32 fst_entry_num_;
         u32 fst_clus_;
         FAT32fs &fs_;
         std::string name_;
@@ -99,6 +105,8 @@ namespace fs {
         optional<shared_ptr<File>> lookupFileByIndex(u32 index) noexcept;
 
         bool isEmpty() noexcept;
+
+        bool isDir() noexcept override;
     };
 
     class FAT32fs {
