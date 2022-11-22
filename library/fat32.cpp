@@ -62,19 +62,14 @@ namespace fat32 {
 
     }
 
-    bool containIllegalShortDirEntryChr(const char *name) {
-        u8 *ptr = (u8 *) name;
-        u8 val;
-        while ((val = *ptr) != 0) {
-            if (val < 0x20 && val != 0x05) {
+    bool containIllegalShortDirEntryChr(u8 val) {
+        if (val < 0x20 && val != 0x05) {
+            return true;
+        }
+        for (auto inval_byte: KInvalidFatBytes) {
+            if (val == inval_byte) {
                 return true;
             }
-            for (auto inval_byte: KInvalidFatBytes) {
-                if (val == inval_byte) {
-                    return true;
-                }
-            }
-            ptr++;
         }
 
         return false;

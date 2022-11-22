@@ -15,12 +15,12 @@ namespace fs {
 
     class File {
     public:
-        /**
-         * Return a null-terminated filename pointer.
-         * */
         File(u32 parent_clus, u32 fst_entry_num, u32 fst_clus, FAT32fs &fs, std::string name,
              const fat32::ShortDirEntry *meta_entry) noexcept;
 
+        /**
+         * Return a null-terminated filename pointer.
+         * */
         const char *name() noexcept;
 
         u64 read(byte *buf, u64 size, u64 offset) noexcept;
@@ -63,24 +63,36 @@ namespace fs {
         /**
          * Return the reference of the cluster chain, using a lazy strategy.
          * */
-        std::vector<u32> &read_clus_chain() noexcept;
+        std::vector<u32> &readClusChain() noexcept;
+
+        /**
+         * Iterate over each directory entry of the cluster chain, return false when chain_index exceeds.
+         * */
+        bool iterClusChainEntry(std::vector<u32> &clus_chain, u32 &chain_index, u32 &sec_index, u32 &sec_off) noexcept;
 
         fat32::FatTimeStamp2 crt_time_;
         fat32::FatDate acc_date_;
         fat32::FatTimeStamp wrt_time_;
         u32 file_sz_;
 
+        /**
+         * Custer number that contains the first directory entry of current file.
+         * */
         u32 parent_clus_;
         /**
-         * Current file's first directory entry number in parent cluster
+         * Current file's first directory entry number in parent cluster, start with zero.
          * */
         u32 fst_entry_num_;
+        /**
+         * The first sector number that contains current file's data.
+         * */
         u32 fst_clus_;
         FAT32fs &fs_;
         std::string name_;
         bool is_deleted_ = false;
         /**
-         * This field should never be used, use read_clus_chain() instead.
+         * Possibly contains current file's cluster chain vector.
+         * This field should never be used, use readClusChain() instead.
          * */
         std::optional<std::vector<u32>> clus_chain_;
     };

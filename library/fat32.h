@@ -184,7 +184,7 @@ namespace fat32 {
     std::string readShortEntryName(ShortDirEntry &short_dir_entry);
 
     // todo: fix this
-    bool containIllegalShortDirEntryChr(const char *name);
+    bool containIllegalShortDirEntryChr(u8 val);
 
     inline void setEntryClusNo(ShortDirEntry &short_dir_entry, u32 clus) {
         short_dir_entry.fst_clus_high = (u16) (clus >> 16);

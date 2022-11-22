@@ -59,17 +59,17 @@ TEST(FAT32Test, StructSz) {
 }
 
 TEST(FAT32Test, IllegalChr) {
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr("\\"));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr("/"));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr(":"));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr("*"));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr("?"));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr("\""));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr("<"));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr(">"));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr("|"));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr(".."));
-    ASSERT_FALSE(fat32::containIllegalShortDirEntryChr("\x05"));
+    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('\\'));
+    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('/'));
+    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr(':'));
+    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('*'));
+    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('?'));
+    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('\"'));
+    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('<'));
+    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('>'));
+    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('|'));
+    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('.'));
+    ASSERT_FALSE(fat32::containIllegalShortDirEntryChr('\x05'));
 }
 
 TEST(FAT32Test, EntryClusNo) {
