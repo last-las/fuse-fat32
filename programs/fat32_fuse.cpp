@@ -160,6 +160,7 @@ static void fat32_unlink(fuse_req_t req, fuse_ino_t parent, const char *name) {
     fuse_reply_err(req, 0);
 }
 
+// todo: check whether the directory is empty before deleting.
 static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
     auto parent_dir = getExistDir(parent);
     auto child_result = parent_dir->lookupFile(name);
@@ -205,13 +206,13 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
             }
         }
         old_parent->delFileEntry(name);
-        old_file->renameTo(new_file);
-        new_file->markDeleted(); // free clusters occupied by new_file
+        new_file->exchangeFstClus(old_file);
+        old_file->markDeleted();
     } else { // newname doesn't exist
         old_parent->delFileEntry(name);
         auto new_file = new_parent->crtFile(newname);
-        old_file->renameTo(new_file);
-        new_file->markDeleted(); // free clusters occupied by new_file
+        new_file->exchangeFstClus(old_file);
+        old_file->markDeleted();
     }
 
     fuse_reply_err(req, 0);

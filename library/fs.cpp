@@ -82,7 +82,7 @@ namespace fs {
             do {
                 u32 sec_no = fat32::getFirstSectorOfCluster(fs_.bpb(), p_clus_chain[clus_i]) + sec_i;
                 sec = fs_.device().readSector(sec_no).value();
-                auto long_dir_entry = (const fat32::LongDirEntry *) sec->read_ptr(sec_off);
+                auto *long_dir_entry = (const fat32::LongDirEntry *) sec->read_ptr(sec_off);
                 if ((long_dir_entry->attr & fat32::KAttrLongNameMask) !=
                     fat32::KAttrLongName) { // find fst short dir entry
                     break;
@@ -95,6 +95,7 @@ namespace fs {
             short_dir_entry->lst_acc_date = acc_date_;
             short_dir_entry->wrt_ts = wrt_time_;
             short_dir_entry->file_sz = file_sz_;
+            fat32::setEntryClusNo(*short_dir_entry, fst_clus_);
         }
 
         // sync data info
@@ -129,13 +130,47 @@ namespace fs {
         return false;
     }
 
-    void File::markDeleted() noexcept {}
+    void File::markDeleted() noexcept {
+        // 1. delete dir entry occupied by current file
+        auto p_clus_chain = fs_.fat().readClusChains(parent_clus_);
+        u32 clus_i = 0;
+        u32 sec_i = (fst_entry_num_ * sizeof(fat32::LongDirEntry)) / fs_.bpb().BPB_bytes_per_sec;
+        u32 sec_off = (fst_entry_num_ * sizeof(fat32::LongDirEntry)) % fs_.bpb().BPB_bytes_per_sec;
+        std::shared_ptr<device::Sector> sec;
+        do {
+            u32 sec_no = fat32::getFirstSectorOfCluster(fs_.bpb(), p_clus_chain[clus_i]) + sec_i;
+            sec = fs_.device().readSector(sec_no).value();
+            auto *dir_entry = (fat32::LongDirEntry *) sec->write_ptr(sec_off);
+            u8 attr = dir_entry->attr;
+            memset(dir_entry, 0x00, sizeof(fat32::LongDirEntry)); // clear
+            if ((attr & fat32::KAttrLongNameMask) != fat32::KAttrLongName) { // last dir entry is found
+                break;
+            }
+        } while (iterClusChainEntry(p_clus_chain, clus_i, sec_i, sec_off));
+
+        // 2. remove clus chain
+        fs_.fat().freeClus(fst_clus_);
+        is_deleted_ = true;
+    }
 
     u64 File::ino() noexcept {
         return ((u64) parent_clus_ << 32) | fst_entry_num_;
     }
 
-    void File::renameTo(shared_ptr<File> target) noexcept {}
+    void File::exchangeFstClus(shared_ptr<File> target) noexcept {
+        // record current file's sz and fst_clus for exchange.
+        u32 this_file_sz = file_sz_;
+        u32 this_fst_clus = fst_clus_;
+
+        // exchange
+        this->file_sz_ = target->file_sz_;
+        this->fst_clus_ = target->fst_clus_;
+        target->file_sz_ = this_file_sz;
+        target->fst_clus_ = this_fst_clus;
+
+        this->sync(true);
+        target->sync(true);
+    }
 
     std::optional<std::shared_ptr<device::Sector>> File::readSector(u32 n) noexcept {
         auto result = sector_no(n);

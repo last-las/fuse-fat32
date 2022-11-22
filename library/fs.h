@@ -39,13 +39,15 @@ namespace fs {
 
         virtual bool isDir() noexcept;
 
-        // todo: merge markDeleted into renameTo.
+        // todo: rename the function name
         void markDeleted() noexcept;
 
         u64 ino() noexcept;
 
-        // modify parent_sec_, meta_entry_num_ and filename to target's value
-        void renameTo(shared_ptr<File> target) noexcept;
+        /**
+         * Exchange first cluster number and file size of the two files.
+         * */
+        void exchangeFstClus(shared_ptr<File> target) noexcept;
 
         /**
          * Read the nth sector of current file(the first sector is 0), or return nullptr when overflowed.
