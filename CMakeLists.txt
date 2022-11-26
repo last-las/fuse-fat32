@@ -37,7 +37,7 @@ add_executable(test_utils_and_device test/test_utils_and_device.cpp library/devi
 target_link_libraries(test_utils_and_device gtest gtest_main)
 target_include_directories(test_utils_and_device PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/test/)
 
-add_executable(test_fat32 test/test_fat32.cpp library/device.cpp library/fs.cpp library/fat32.cpp)
+add_executable(test_fat32 test/test_fat32.cpp library/device.cpp library/fs.cpp library/fat32.cpp library/util.cpp)
 target_link_libraries(test_fat32 gtest gtest_main)
 target_include_directories(test_fat32 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/test/)
 

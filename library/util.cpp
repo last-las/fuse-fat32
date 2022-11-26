@@ -1,5 +1,6 @@
 #include <string>
 #include <cstring>
+#include <algorithm>
 #include <iconv.h>
 
 #include "util.h"
@@ -89,7 +90,20 @@ namespace util {
         return result;
     }
 
-    void util::strip(std::string &s, char chr) noexcept {
-        // todo
+    void lstrip(std::string &s, char a) noexcept {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [&a](char ch) {
+            return ch != a;
+        }));
+    }
+
+    void rstrip(std::string &s, char a) noexcept {
+        s.erase(std::find_if(s.rbegin(), s.rend(), [&a](char ch) {
+            return ch != a;
+        }).base(), s.end());
+    }
+
+    void strip(std::string &s, char a) noexcept {
+        lstrip(s, a);
+        rstrip(s, a);
     }
 }

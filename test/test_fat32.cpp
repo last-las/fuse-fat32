@@ -14,6 +14,37 @@ static u32 start_sec_no_;
 static u32 fat_sec_no_;
 static u32 fat_num_;
 
+const u32 KNameCnt = 12;
+std::string long_names[KNameCnt] = {
+        "short",
+        "short.ext",
+        "damnLongName",
+        "damnLongName.ext",
+        "1.23",
+        "1.2345",
+        " space.txt ",
+        ".dot.txt.",
+        " ..space_and_dot.txt.. ",
+        "a.b.c.txt",
+        "你好世界.txt",
+        "你好1世界.txt",
+};
+
+fat32::BasisName basis_names[KNameCnt] = {
+        {"SHORT   ",                         "   "},
+        {"SHORT   ",                         "EXT"},
+        {"DAMNLONG",                         "   "},
+        {"DAMNLONG",                         "EXT"},
+        {"1       ",                         "23 "},
+        {"1       ",                         "234"},
+        {"SPACE   ",                         "TXT"},
+        {"DOT     ",                         "TXT"},
+        {"SPACE_AN",                         "TXT"},
+        {"A       ",                         "TXT"}, // Note that on win10, the "a.b.c.txt" is converted to "ABC.TXT".
+        {"\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", "TXT"},
+        {"\xc4\xe3\xba\xc3\x31\xca\xc0\xbd", "TXT"},
+};
+
 /**
  * The test case requires mkfs.fat to be installed.
  * */
@@ -104,6 +135,19 @@ TEST(FAT32Test, unixDosCvt2) {
     ASSERT_TRUE(sec_gap == 0 || sec_gap == 1);
     ASSERT_EQ(unix_ts.tv_nsec / 10000000, parsed_unix_ts.tv_nsec / 10000000);
     ASSERT_EQ(parsed_unix_ts.tv_sec, parsed_unix_ts2.tv_sec);
+}
+
+void assert_basis_name_eq(fat32::BasisName &a, fat32::BasisName &b) {
+    ASSERT_STREQ(a.primary, b.primary);
+    ASSERT_STREQ(a.extension, b.extension);
+}
+
+TEST(FAT32Test, genBasisName) {
+    fat32::BasisName gen_basis_name;
+    for (u32 i = 0; i < KNameCnt; ++i) {
+        gen_basis_name = fat32::genBasisNameFrom(long_names[i]);
+        assert_basis_name_eq(gen_basis_name, basis_names[i]);
+    }
 }
 
 TEST(FAT32Test, AvailClusCnt) {

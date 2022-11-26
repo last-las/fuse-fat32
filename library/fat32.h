@@ -213,8 +213,15 @@ namespace fat32 {
 
     u8 chkSum(const u8 *short_entry_name);
 
-    // Assume the name can always be converted to a gbk encoding.
-    util::string_gbk genShortNameFrom(util::string_utf8 &utf8_str);
+    // Assume utf8_str can always be converted to a gbk encoding.
+    struct BasisName {
+        char primary[8 + 1];
+        char extension[3 + 1];
+    }__attribute__((packed));
+
+    BasisName mkEmptyBasisName();
+
+    BasisName genBasisNameFrom(util::string_utf8 long_name);
 
     class FAT {
     public:

@@ -284,6 +284,18 @@ TEST(IconvTest, Utf8AndUtf16) {
     ASSERT_EQ(errno, EINVAL);
 }
 
+TEST(StripTest, strip) {
+    std::string s;
+
+    s = " name   ";
+    util::strip(s, ' ');
+    ASSERT_STREQ(s.c_str(), "name");
+
+    s = "..na...me...";
+    util::strip(s, '.');
+    ASSERT_STREQ(s.c_str(), "na...me");
+}
+
 // todo: check google test.
 
 int main(int argc, char **argv) {

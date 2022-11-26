@@ -233,13 +233,13 @@ namespace fs {
      * Directory
      * */
     optional<shared_ptr<File>> Directory::crtFile(const char *name) noexcept {
-        // 1. convert the name to utf16;
+        // convert the name to utf16 and calc required entry num
         util::string_utf8 utf8_name(name);
         util::string_utf16 utf16_name = util::utf8ToUtf16(utf8_name).value();
         u32 required_entry_num = (utf16_name.size() - 1) / fat32::KNameBytePerLongEntry + 1;
-        required_entry_num++; // short dir entry
+        required_entry_num++; // increase for extra short dir entry
 
-        // 2. traverse the content, try to find enough space, or if not, resize;
+        // try to find enough empty space
         u32 cur_entry;
         u32 free_entry_start = 0;
         u32 free_entry_cnt = 0;
@@ -256,18 +256,22 @@ namespace fs {
             } else {
                 free_entry_cnt = 0;
             }
+
+            // todo: read the directory entry, if it's a short dir entry keep the name for future collide determination.
         }
 
+        // alloc more when not enough empty space
         if (free_entry_cnt < required_entry_num) {
             if (this->truncate(file_sz_ + (required_entry_num - free_entry_cnt) * sizeof(fat32::LongDirEntry))) {
                 if (free_entry_cnt == 0) {
                     free_entry_start = cur_entry;
                 }
-            } else { // not enough disk space
+            } else { // not enough disk space, return null
                 return std::nullopt;
             }
         }
-        // 3. calculate CRC and generate basis-name of short dir entry;
+
+        // calculate CRC and generate basis-name of short dir entry
 
 
 

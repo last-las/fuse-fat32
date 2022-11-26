@@ -1,6 +1,8 @@
 #include <cassert>
+#include <cstring>
 
 #include "fat32.h"
+#include "util.h"
 
 namespace fat32 {
     bool isValidFat32BPB(BPB &bpb) {
@@ -135,14 +137,43 @@ namespace fat32 {
         return sum;
     }
 
-    util::string_gbk genShortNameFrom(util::string_utf8 utf8_str) {
-        for(auto & c: utf8_str)
+    BasisName mkEmptyBasisName() {
+        BasisName basis_name;
+        memset(&basis_name, 0x20, sizeof(BasisName));
+        basis_name.primary[8] = 0x00;
+        basis_name.extension[3] = 0x00;
+        return basis_name;
+    }
+
+    BasisName genBasisNameFrom(util::string_utf8 long_name) {
+        // to upper case and strip ' ' & '.'
+        for (auto &c: long_name)
             c = std::toupper(c);
+        util::strip(long_name, ' ');
+        util::strip(long_name, '.');
 
-        util::strip(utf8_str, ' ');
-        util::strip(utf8_str, '.');
+        // to gbk encoding
+        util::string_gbk gbk_str = util::utf8ToGbk(long_name).value();
+        BasisName basis_name = mkEmptyBasisName();
 
-        util::string_gbk bgk_str = util::utf8ToGbk(utf8_str).value();
+        // write primary portion
+        for (int i = 0; i < 8 && i < gbk_str.length() && gbk_str[i] != '.'; i++) {
+            basis_name.primary[i] = gbk_str[i];
+        }
+
+        // write extension portion if last period exists
+        u32 last_dot_index = gbk_str.length();
+        for (int i = int(gbk_str.length() - 1); i >= 0; i--) {
+            if (gbk_str[i] == '.') {
+                last_dot_index = i;
+                break;
+            }
+        }
+        for (u32 i = last_dot_index + 1, cnt = 0; cnt < 3 && i < gbk_str.length(); ++cnt, ++i) {
+            basis_name.extension[cnt] = gbk_str[i];
+        }
+
+        return basis_name;
     }
 
     /**

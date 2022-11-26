@@ -70,8 +70,11 @@ namespace util {
 
     std::optional<string_utf8> utf16ToUtf8(string_utf16 &utf16_str) noexcept;
 
-    void strip(std::string &s, char chr) noexcept;
+    void lstrip(std::string &s, char a) noexcept;
 
+    void rstrip(std::string &s, char a) noexcept;
+
+    void strip(std::string &s, char a) noexcept;
 } // namespace util
 
 #endif //STUPID_FAT32_UTIL_H
