@@ -12,21 +12,21 @@
 
 std::optional<fs::FAT32fs> filesystem;
 
-fs::FAT32fs& getFilesystem() {
+fs::FAT32fs &getFilesystem() {
     assert(filesystem.has_value());
     return filesystem.value();
 }
 
 // If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::Directory> getExistDir(fuse_ino_t ino) {
-    auto result =getFilesystem().getDir(ino);
+    auto result = getFilesystem().getDir(ino);
     assert(result.has_value());
     return result.value();
 }
 
 // If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::File> getExistFile(fuse_ino_t ino) {
-    auto result =getFilesystem().getFile(ino);
+    auto result = getFilesystem().getFile(ino);
     assert(result.has_value());
     return result.value();
 }
@@ -136,7 +136,12 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
 // fat32 doesn't support mode
 static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t) {
     auto parent_dir = getExistDir(parent);
-    auto child_dir = parent_dir->crtDir(name);
+    auto result = parent_dir->crtDir(name);
+    if (!result.has_value()) {
+        fuse_reply_err(req, EFBIG);
+        return;
+    }
+    auto child_dir = result.value();
     struct fuse_entry_param e{};
     e.attr = readFileStat(child_dir);
     e.ino = child_dir->ino();
@@ -210,7 +215,12 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
         old_file->markDeleted();
     } else { // newname doesn't exist
         old_parent->delFileEntry(name);
-        auto new_file = new_parent->crtFile(newname);
+        auto result = new_parent->crtFile(newname);
+        if (!result.has_value()) {
+            fuse_reply_err(req, EFBIG);
+            return;
+        }
+        auto new_file = result.value();
         new_file->exchangeFstClus(old_file);
         old_file->markDeleted();
     }
@@ -305,7 +315,7 @@ static void fat32_do_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
 
 static void fat32_readdir(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
-    fat32_do_readdir(req, ino, size, offset, fi,false);
+    fat32_do_readdir(req, ino, size, offset, fi, false);
 }
 
 static void fat32_readdir_plus(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
@@ -351,7 +361,12 @@ static void fat32_create(fuse_req_t req, fuse_ino_t parent, const char *name, mo
         return;
     }
 
-    auto child_file = parent_dir->crtFile(name);
+    auto result = parent_dir->crtFile(name);
+    if (!result.has_value()) {
+        fuse_reply_err(req, EFBIG);
+        return;
+    }
+    auto child_file = result.value();
     struct fuse_entry_param e{};
     e.attr = readFileStat(child_file);
     e.ino = child_file->ino();
@@ -385,6 +400,7 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
 int main(int argc, char *argv[]) {
     // TODO: enable -o default_permissions;
     // TODO: make sure the path exists!
+    // TODO: check the file name length!
     device::LinuxFileDriver dev = device::LinuxFileDriver("/dev/sdb1", SECTOR_SIZE);
     device::CacheManager cache_mgr = device::CacheManager(dev);
     auto fs = fs::FAT32fs::from(cache_mgr);

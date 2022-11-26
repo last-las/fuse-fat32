@@ -61,6 +61,9 @@ namespace fs {
 
         virtual ~File() noexcept;
 
+    protected:
+        u32 file_sz_;
+
     private:
         /**
          * Return the reference of the cluster chain, using a lazy strategy.
@@ -75,7 +78,6 @@ namespace fs {
         fat32::FatTimeStamp2 crt_time_;
         fat32::FatDate acc_date_;
         fat32::FatTimeStamp wrt_time_;
-        u32 file_sz_;
 
         /**
          * Custer number that contains the first directory entry of current file.
@@ -101,10 +103,9 @@ namespace fs {
 
     class Directory : public File {
     public:
-        // TODO: errno should also be returned.
-        shared_ptr<File> crtFile(const char *name) noexcept;
+        optional<shared_ptr<File>> crtFile(const char *name) noexcept;
 
-        shared_ptr<Directory> crtDir(const char *name) noexcept;
+        optional<shared_ptr<Directory>> crtDir(const char *name) noexcept;
 
         bool delFileEntry(const char *name) noexcept;
 
@@ -121,6 +122,11 @@ namespace fs {
         bool isEmpty() noexcept;
 
         bool isDir() noexcept override;
+
+    private:
+        optional<fat32::LongDirEntry> readDirEntry(u32 no) noexcept;
+
+        bool writeDirEntry(u32 no, fat32::LongDirEntry &dir_entry) noexcept;
     };
 
     class FAT32fs {

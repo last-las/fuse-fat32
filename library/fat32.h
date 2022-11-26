@@ -34,6 +34,7 @@ namespace fat32 {
     const u8 KAttrLongNameMask =
             KAttrReadOnly | KAttrHidden | KAttrSystem | KAttrVolumeID | KAttrDirectory | KAttrArchive;
     const u8 KLastLongEntry = 0x40;
+    const u8 KNameBytePerLongEntry = 26;
 
     struct BPB {
         u8 BS_jmp_boot[3];
@@ -206,8 +207,13 @@ namespace fat32 {
         u8 name3[4];
     }__attribute__((packed));
 
+    inline bool isEmptyDirEntry(LongDirEntry &dir_entry) {
+        return dir_entry.ord == 0x00 || dir_entry.ord == 0xE5;
+    }
+
     u8 chkSum(const u8 *short_entry_name);
 
+    // Assume the name can always be converted to a gbk encoding.
     util::string_gbk genShortNameFrom(util::string_utf8 &utf8_str);
 
     class FAT {

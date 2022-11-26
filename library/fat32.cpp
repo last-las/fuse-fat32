@@ -135,6 +135,16 @@ namespace fat32 {
         return sum;
     }
 
+    util::string_gbk genShortNameFrom(util::string_utf8 utf8_str) {
+        for(auto & c: utf8_str)
+            c = std::toupper(c);
+
+        util::strip(utf8_str, ' ');
+        util::strip(utf8_str, '.');
+
+        util::string_gbk bgk_str = util::utf8ToGbk(utf8_str).value();
+    }
+
     /**
      * FAT implement
      * */

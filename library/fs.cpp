@@ -19,6 +19,7 @@ namespace fs {
         return this->name_.c_str();
     }
 
+    // todo: check `file_sz_`
     u64 File::read(byte *buf, u64 size, u64 offset) noexcept {
         fat32::BPB &bpb = fs_.bpb();
         u32 off_in_sec = offset / bpb.BPB_bytes_per_sec;
@@ -72,6 +73,9 @@ namespace fs {
     }
 
     void File::sync(bool sync_meta) noexcept {
+        if (is_deleted_) {
+            return;
+        }
         if (sync_meta) {
             auto p_clus_chain = fs_.fat().readClusChains(parent_clus_);
             u32 clus_i = 0;
@@ -105,6 +109,7 @@ namespace fs {
         }
     }
 
+    // todo: mark the dir_entry.ord 0x00 when remove some clusters...; change the file_sz_.
     bool File::truncate(u32 length) noexcept {
         u32 clus_num = (length == 0 ? 0 : length - 1) / fat32::bytesPerClus(fs_.bpb()) + 1;
         if (fs_.fat().resize(fst_clus_, clus_num)) {
@@ -142,7 +147,7 @@ namespace fs {
             sec = fs_.device().readSector(sec_no).value();
             auto *dir_entry = (fat32::LongDirEntry *) sec->write_ptr(sec_off);
             u8 attr = dir_entry->attr;
-            memset(dir_entry, 0x00, sizeof(fat32::LongDirEntry)); // clear
+            memset(dir_entry, 0x00, sizeof(fat32::LongDirEntry)); // todo: fix this.
             if ((attr & fat32::KAttrLongNameMask) != fat32::KAttrLongName) { // last dir entry is found
                 break;
             }
@@ -227,14 +232,60 @@ namespace fs {
     /**
      * Directory
      * */
-    shared_ptr<File> Directory::crtFile(const char *name) noexcept {}
+    optional<shared_ptr<File>> Directory::crtFile(const char *name) noexcept {
+        // 1. convert the name to utf16;
+        util::string_utf8 utf8_name(name);
+        util::string_utf16 utf16_name = util::utf8ToUtf16(utf8_name).value();
+        u32 required_entry_num = (utf16_name.size() - 1) / fat32::KNameBytePerLongEntry + 1;
+        required_entry_num++; // short dir entry
 
-    shared_ptr<Directory> Directory::crtDir(const char *name) noexcept {}
+        // 2. traverse the content, try to find enough space, or if not, resize;
+        u32 cur_entry;
+        u32 free_entry_start = 0;
+        u32 free_entry_cnt = 0;
+        std::optional<fat32::LongDirEntry> result;
+        for (cur_entry = 0;
+             free_entry_cnt < required_entry_num && (result = readDirEntry(cur_entry)).has_value();
+             cur_entry++) {
+            auto dir_entry = result.value();
+            if (fat32::isEmptyDirEntry(dir_entry)) {
+                if (free_entry_cnt == 0) {
+                    free_entry_start = cur_entry;
+                }
+                free_entry_cnt++;
+            } else {
+                free_entry_cnt = 0;
+            }
+        }
 
-    bool Directory::delFileEntry(const char *name) noexcept {}
+        if (free_entry_cnt < required_entry_num) {
+            if (this->truncate(file_sz_ + (required_entry_num - free_entry_cnt) * sizeof(fat32::LongDirEntry))) {
+                if (free_entry_cnt == 0) {
+                    free_entry_start = cur_entry;
+                }
+            } else { // not enough disk space
+                return std::nullopt;
+            }
+        }
+        // 3. calculate CRC and generate basis-name of short dir entry;
+
+
+
+        // 4. write into content;
+        // 5. convert them to a File object and check whether it's cached in this->fs_.
+    }
+
+    optional<shared_ptr<Directory>> Directory::crtDir(const char *name) noexcept {}
+
+    bool Directory::delFileEntry(const char *name) noexcept {
+        // 1. convert the name to utf16;
+        // 2. traverse the content, try to find the name;
+        // 3. remove all the dir entries related to name;
+        // 4. determine whether to shrink the content.
+    }
 
     optional<shared_ptr<File>> Directory::lookupFile(const char *name) noexcept {
-
+        // 1. lookup name on cached lookup files.
     }
 
     optional<shared_ptr<File>> Directory::lookupFileByIndex(u32 index) noexcept {}
@@ -245,6 +296,12 @@ namespace fs {
     bool Directory::isDir() noexcept {
         return true;
     }
+
+    optional<fat32::LongDirEntry> Directory::readDirEntry(u32 no) noexcept {
+        //
+    }
+
+    bool Directory::writeDirEntry(u32 no, fat32::LongDirEntry &dir_entry) noexcept {}
 
     /**
      * Filesystem

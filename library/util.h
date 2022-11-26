@@ -69,6 +69,9 @@ namespace util {
     std::optional<string_utf16> utf8ToUtf16(string_utf8 &utf8_str) noexcept;
 
     std::optional<string_utf8> utf16ToUtf8(string_utf16 &utf16_str) noexcept;
+
+    void strip(std::string &s, char chr) noexcept;
+
 } // namespace util
 
 #endif //STUPID_FAT32_UTIL_H

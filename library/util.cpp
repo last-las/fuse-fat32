@@ -88,4 +88,8 @@ namespace util {
         iconv_close(cd);
         return result;
     }
+
+    void util::strip(std::string &s, char chr) noexcept {
+        // todo
+    }
 }
