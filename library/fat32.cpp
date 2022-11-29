@@ -128,10 +128,14 @@ namespace fat32 {
         return unix_ts;
     }
 
-    u8 chkSum(const u8 *short_entry_name) {
+    u8 chkSum(BasisName &basis_name) {
         u8 sum = 0;
+        char *name_ptr = &basis_name.primary[0];
         for (short name_len = 11; name_len != 0; name_len--) {
-            sum = ((sum & 1) ? 0x80 : 0) + (sum >> 1) + *short_entry_name++;
+            sum = ((sum & 1) ? 0x80 : 0) + (sum >> 1) + *name_ptr++;
+            if (name_ptr == &basis_name.primary[8]) {
+                name_ptr = &basis_name.extension[0];
+            }
         }
 
         return sum;

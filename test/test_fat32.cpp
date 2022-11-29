@@ -142,6 +142,13 @@ void assert_basis_name_eq(fat32::BasisName &a, fat32::BasisName &b) {
     ASSERT_STREQ(a.extension, b.extension);
 }
 
+TEST(FAT32Test, chkSum) {
+    fat32::BasisName basis_name = {"DAMNLO~1", "TXT"};
+    u8 expected_chk_sum = 0x66;
+    u8 calc_chk_sum = fat32::chkSum(basis_name);
+    ASSERT_EQ(calc_chk_sum, expected_chk_sum);
+}
+
 TEST(FAT32Test, genBasisName) {
     fat32::BasisName gen_basis_name;
     for (u32 i = 0; i < KNameCnt; ++i) {

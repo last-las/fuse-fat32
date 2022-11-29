@@ -211,13 +211,13 @@ namespace fat32 {
         return dir_entry.ord == 0x00 || dir_entry.ord == 0xE5;
     }
 
-    u8 chkSum(const u8 *short_entry_name);
-
     // Assume utf8_str can always be converted to a gbk encoding.
     struct BasisName {
         char primary[8 + 1];
         char extension[3 + 1];
     }__attribute__((packed));
+
+    u8 chkSum(BasisName &basis_name);
 
     BasisName mkEmptyBasisName();
 
