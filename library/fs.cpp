@@ -1,6 +1,7 @@
 #include <cstring>
 #include <cassert>
 #include <algorithm>
+#include <memory>
 
 #include "fs.h"
 #include "fat32.h"
@@ -9,9 +10,9 @@ namespace fs {
     /**
      * File
      * */
-    File::File(u32 parent_clus, u32 fst_entry_num, u32 fst_clus, fs::FAT32fs &fs, std::string name,
+    File::File(u32 parent_clus, u32 fst_entry_num, fs::FAT32fs &fs, std::string name,
                const fat32::ShortDirEntry *meta_entry) noexcept
-            : parent_clus_{parent_clus}, fst_entry_num_{fst_entry_num}, fst_clus_{fst_clus}, fs_{fs},
+            : parent_clus_{parent_clus}, fst_entry_num_{fst_entry_num}, fst_clus_{0}, fs_{fs},
               name_{std::move(name)}, crt_time_{meta_entry->crt_ts2}, acc_date_{meta_entry->lst_acc_date},
               wrt_time_{meta_entry->wrt_ts}, file_sz_{meta_entry->file_sz} {}
 
@@ -109,6 +110,7 @@ namespace fs {
         }
     }
 
+    // todo: The fst_clus might be 0x00!
     // todo: mark the dir_entry.ord 0x00 when remove some clusters...; change the file_sz_.
     bool File::truncate(u32 length) noexcept {
         u32 clus_num = (length == 0 ? 0 : length - 1) / fat32::bytesPerClus(fs_.bpb()) + 1;
@@ -256,8 +258,6 @@ namespace fs {
             } else {
                 free_entry_cnt = 0;
             }
-
-            // todo: read the directory entry, if it's a short dir entry keep the name for future collide determination.
         }
 
         // alloc more when not enough empty space
@@ -272,11 +272,21 @@ namespace fs {
         }
 
         // calculate CRC and generate basis-name of short dir entry
+        fat32::BasisName basis_name = fat32::genBasisNameFrom(utf8_name);
+        u8 chk_sum = fat32::chkSum(basis_name);
+        u32 off = 0;
 
+        for (u32 l_dir_ord = 1; l_dir_ord <= required_entry_num - 1; l_dir_ord++) {
+            bool is_lst = (l_dir_ord == required_entry_num - 1);
+            fat32::LongDirEntry l_dir_entry = fat32::mkLongDirEntry(is_lst, l_dir_ord, chk_sum, utf16_name, off);
+            writeDirEntry(free_entry_start + required_entry_num - l_dir_ord - 1, l_dir_entry);
+            off += fat32::KNameBytePerLongEntry;
+        }
+        const fat32::ShortDirEntry s_dir_entry = fat32::mkShortDirEntry(basis_name, false);
+        writeDirEntry(free_entry_start + required_entry_num - 1, *(fat32::LongDirEntry *) (&s_dir_entry));
 
-
-        // 4. write into content;
-        // 5. convert them to a File object and check whether it's cached in this->fs_.
+        return std::make_shared<File>(this->parent_clus_, free_entry_start,
+                                      this->fs_, std::move(utf8_name), &s_dir_entry);
     }
 
     optional<shared_ptr<Directory>> Directory::crtDir(const char *name) noexcept {}
@@ -301,11 +311,13 @@ namespace fs {
         return true;
     }
 
-    optional<fat32::LongDirEntry> Directory::readDirEntry(u32 no) noexcept {
-        //
+    optional<fat32::LongDirEntry> Directory::readDirEntry(u32 n) noexcept {
+        // todo
     }
 
-    bool Directory::writeDirEntry(u32 no, fat32::LongDirEntry &dir_entry) noexcept {}
+    bool Directory::writeDirEntry(u32 n, fat32::LongDirEntry &dir_entry) noexcept {
+        // todo
+    }
 
     /**
      * Filesystem

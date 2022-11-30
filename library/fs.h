@@ -15,7 +15,7 @@ namespace fs {
 
     class File {
     public:
-        File(u32 parent_clus, u32 fst_entry_num, u32 fst_clus, FAT32fs &fs, std::string name,
+        File(u32 parent_clus, u32 fst_entry_num, FAT32fs &fs, std::string name,
              const fat32::ShortDirEntry *meta_entry) noexcept;
 
         /**
@@ -63,6 +63,11 @@ namespace fs {
 
     protected:
         u32 file_sz_;
+        /**
+         * Custer number that contains the first directory entry of current file.
+         * */
+        u32 parent_clus_;
+        FAT32fs &fs_;
 
     private:
         /**
@@ -80,10 +85,6 @@ namespace fs {
         fat32::FatTimeStamp wrt_time_;
 
         /**
-         * Custer number that contains the first directory entry of current file.
-         * */
-        u32 parent_clus_;
-        /**
          * Current file's first directory entry number in parent cluster, start with zero.
          * */
         u32 fst_entry_num_;
@@ -91,7 +92,6 @@ namespace fs {
          * The first sector number that contains current file's data.
          * */
         u32 fst_clus_;
-        FAT32fs &fs_;
         std::string name_;
         bool is_deleted_ = false;
         /**
@@ -124,9 +124,15 @@ namespace fs {
         bool isDir() noexcept override;
 
     private:
-        optional<fat32::LongDirEntry> readDirEntry(u32 no) noexcept;
+        /**
+         * Read the nth directory entry, starting from zero.
+         * */
+        optional<fat32::LongDirEntry> readDirEntry(u32 n) noexcept;
 
-        bool writeDirEntry(u32 no, fat32::LongDirEntry &dir_entry) noexcept;
+        /**
+         * Write the nth directory entry, starting from zero.
+         * */
+        bool writeDirEntry(u32 n, fat32::LongDirEntry &dir_entry) noexcept;
     };
 
     class FAT32fs {

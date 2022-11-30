@@ -207,7 +207,7 @@ namespace fat32 {
         u8 name3[4];
     }__attribute__((packed));
 
-    LongDirEntry mkLongDirEntry(bool is_lst, u8 ord, u8 chk_sum, util::string_utf16& name, u32 off);
+    LongDirEntry mkLongDirEntry(bool is_lst, u8 ord, u8 chk_sum, util::string_utf16 &name, u32 off);
 
     inline bool isEmptyDirEntry(LongDirEntry &dir_entry) {
         return dir_entry.ord == 0x00 || dir_entry.ord == 0xE5;
@@ -219,7 +219,7 @@ namespace fat32 {
         char extension[3 + 1];
     }__attribute__((packed));
 
-    ShortDirEntry mkShortDirEntry(BasisName& basis_name, u8 attr, u32 fst_clus, u32 file_sz);
+    ShortDirEntry mkShortDirEntry(BasisName &basis_name, bool is_dir);
 
     u8 chkSum(BasisName &basis_name);
 
