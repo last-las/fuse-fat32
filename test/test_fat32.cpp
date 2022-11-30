@@ -149,6 +149,24 @@ TEST(FAT32Test, chkSum) {
     ASSERT_EQ(calc_chk_sum, expected_chk_sum);
 }
 
+TEST(FAT32Test, mkLongDirEntry) {
+    const u8 fst_entry_data[32] = {
+            0x01, 0x64, 0x00, 0x61, 0x00, 0x6D, 0x00, 0x6E, 0x00, 0x6C, 0x00, 0x0F, 0x00, 0x66, 0x6F, 0x00,
+            0x6E, 0x00, 0x67, 0x00, 0x6E, 0x00, 0x61, 0x00, 0x6D, 0x00, 0x00, 0x00, 0x65, 0x00, 0x2E, 0x00
+    };
+    const u8 lst_entry_data[32] = {
+            0x42, 0x74, 0x00, 0x78, 0x00, 0x74, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x0F, 0x00, 0x66, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF
+    };
+    util::string_utf8 utf8_name = "damnlongname.txt";
+    util::string_utf16 utf16_name = util::utf8ToUtf16(utf8_name).value();
+    u8 chk_sum = 0x66;
+    fat32::LongDirEntry fst_dir_entry = fat32::mkLongDirEntry(false, 1, chk_sum, utf16_name, 0);
+    fat32::LongDirEntry lst_dir_entry = fat32::mkLongDirEntry(true, 2, chk_sum, utf16_name, 26);
+    ASSERT_EQ(strncmp((const char *) &fst_entry_data[0], (const char *) &fst_dir_entry, 32), 0);
+    ASSERT_EQ(strncmp((const char *) &lst_entry_data[0], (const char *) &lst_dir_entry, 32), 0);
+}
+
 TEST(FAT32Test, genBasisName) {
     fat32::BasisName gen_basis_name;
     for (u32 i = 0; i < KNameCnt; ++i) {

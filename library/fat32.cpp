@@ -128,6 +128,38 @@ namespace fat32 {
         return unix_ts;
     }
 
+    LongDirEntry mkLongDirEntry(bool is_lst, u8 ord, u8 chk_sum, util::string_utf16 &name, u32 off) {
+        LongDirEntry long_dir_entry;
+        long_dir_entry.ord = is_lst ? KLastLongEntry | ord : ord;
+        long_dir_entry.attr = KAttrLongName;
+        long_dir_entry.type = 0;
+        long_dir_entry.chk_sum = chk_sum;
+        long_dir_entry.fst_clus_low = 0;
+
+        u32 name_len = name.length();
+        u8 *name_ptr = &long_dir_entry.name1[0];
+        for (int i = 1; i <= 13; i++) {
+            if (off < name_len) {
+                *name_ptr = name[off];
+                *(name_ptr + 1) = name[off + 1];
+            } else if (off == name_len) {
+                *name_ptr = *(name_ptr + 1) = 0x00;
+            } else { // start > name_len
+                *name_ptr = *(name_ptr + 1) = 0xFF;
+            }
+
+            off += 2;
+            name_ptr += 2;
+            if (i == 5) {
+                name_ptr = &long_dir_entry.name2[0];
+            } else if (i == 5 + 6) {
+                name_ptr = &long_dir_entry.name3[0];
+            }
+        }
+
+        return long_dir_entry;
+    }
+
     u8 chkSum(BasisName &basis_name) {
         u8 sum = 0;
         char *name_ptr = &basis_name.primary[0];
