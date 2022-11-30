@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstring>
+#include <time.h>
 
 #include "fat32.h"
 #include "util.h"
@@ -158,6 +159,25 @@ namespace fat32 {
         }
 
         return long_dir_entry;
+    }
+
+    ShortDirEntry mkShortDirEntry(BasisName &basis_name, bool is_dir) {
+        timespec unix_ts;
+        clock_gettime(CLOCK_REALTIME, &unix_ts);
+        fat32::FatTimeStamp dos_ts = unix2DosTs(unix_ts);
+        fat32::FatTimeStamp2 dos_ts2 = unix2DosTs_2(unix_ts);
+
+        ShortDirEntry shortDirEntry{0};
+        memcpy(&shortDirEntry.name[0], &basis_name.primary[0], 8);
+        memcpy(&shortDirEntry.name[8], &basis_name.extension[0], 3);
+        shortDirEntry.attr = is_dir ? KAttrDirectory : 0;
+        shortDirEntry.crt_ts2 = dos_ts2;
+        shortDirEntry.lst_acc_date = dos_ts.date;
+        shortDirEntry.wrt_ts = dos_ts;
+        shortDirEntry.file_sz = 0;
+        setEntryClusNo(shortDirEntry, 0); // empty space
+
+        return shortDirEntry;
     }
 
     u8 chkSum(BasisName &basis_name) {

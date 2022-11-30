@@ -219,6 +219,8 @@ namespace fat32 {
         char extension[3 + 1];
     }__attribute__((packed));
 
+    ShortDirEntry mkShortDirEntry(BasisName& basis_name, u8 attr, u32 fst_clus, u32 file_sz);
+
     u8 chkSum(BasisName &basis_name);
 
     BasisName mkEmptyBasisName();
