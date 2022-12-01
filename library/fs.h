@@ -124,6 +124,8 @@ namespace fs {
         bool isDir() noexcept override;
 
     private:
+        optional<shared_ptr<File>> crtFileInner(const char *name, bool is_dir) noexcept;
+
         /**
          * Read the nth directory entry, starting from zero.
          * */

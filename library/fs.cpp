@@ -6,6 +6,7 @@
 #include "fs.h"
 #include "fat32.h"
 
+// todo: change the AccDate and WrtTime/WrtData when read and write!
 namespace fs {
     /**
      * File
@@ -238,6 +239,40 @@ namespace fs {
      * Directory
      * */
     optional<shared_ptr<File>> Directory::crtFile(const char *name) noexcept {
+        return crtFileInner(name, false);
+    }
+
+    optional<shared_ptr<Directory>> Directory::crtDir(const char *name) noexcept {
+        auto result = crtFileInner(name, true);
+        if (result.has_value()) {
+            auto dir_obj = std::dynamic_pointer_cast<Directory>(result.value());
+            return {dir_obj};
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    bool Directory::delFileEntry(const char *name) noexcept {
+        // 1. convert the name to utf16;
+        // 2. traverse the content, try to find the name;
+        // 3. remove all the dir entries related to name;
+        // 4. determine whether to shrink the content.
+    }
+
+    optional<shared_ptr<File>> Directory::lookupFile(const char *name) noexcept {
+        // 1. lookup name on cached lookup files.
+    }
+
+    optional<shared_ptr<File>> Directory::lookupFileByIndex(u32 index) noexcept {}
+
+
+    bool Directory::isEmpty() noexcept {}
+
+    bool Directory::isDir() noexcept {
+        return true;
+    }
+
+    optional<shared_ptr<File>> Directory::crtFileInner(const char *name, bool is_dir) noexcept {
         // convert the name to utf16 and calc required entry num
         util::string_utf8 utf8_name(name);
         util::string_utf16 utf16_name = util::utf8ToUtf16(utf8_name).value();
@@ -286,7 +321,7 @@ namespace fs {
             writeDirEntry(free_entry_start + required_entry_num - l_dir_ord - 1, l_dir_entry);
             off += fat32::KNameBytePerLongEntry;
         }
-        const fat32::ShortDirEntry s_dir_entry = fat32::mkShortDirEntry(basis_name, false);
+        const fat32::ShortDirEntry s_dir_entry = fat32::mkShortDirEntry(basis_name, is_dir);
         writeDirEntry(free_entry_start + required_entry_num - 1, *(fat32::LongDirEntry *) (&s_dir_entry));
 
         auto file = std::make_shared<File>(this->parent_clus_, free_entry_start,
@@ -295,27 +330,6 @@ namespace fs {
         return file;
     }
 
-    optional<shared_ptr<Directory>> Directory::crtDir(const char *name) noexcept {}
-
-    bool Directory::delFileEntry(const char *name) noexcept {
-        // 1. convert the name to utf16;
-        // 2. traverse the content, try to find the name;
-        // 3. remove all the dir entries related to name;
-        // 4. determine whether to shrink the content.
-    }
-
-    optional<shared_ptr<File>> Directory::lookupFile(const char *name) noexcept {
-        // 1. lookup name on cached lookup files.
-    }
-
-    optional<shared_ptr<File>> Directory::lookupFileByIndex(u32 index) noexcept {}
-
-
-    bool Directory::isEmpty() noexcept {}
-
-    bool Directory::isDir() noexcept {
-        return true;
-    }
 
     optional<fat32::LongDirEntry> Directory::readDirEntry(u32 n) noexcept {
         // todo
