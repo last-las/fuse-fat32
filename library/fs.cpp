@@ -20,8 +20,7 @@ namespace fs {
         return this->name_.c_str();
     }
 
-    // todo: check `file_sz_`
-    u64 File::read(byte *buf, u64 size, u64 offset) noexcept {
+    u32 File::read(byte *buf, u32 size, u32 offset) noexcept {
         fat32::BPB &bpb = fs_.bpb();
         u32 off_in_sec = offset / bpb.BPB_bytes_per_sec;
         u32 off_in_bytes = offset % bpb.BPB_bytes_per_sec;
@@ -30,10 +29,10 @@ namespace fs {
             return 0;
         }
 
-        u64 remained_sz = size;
+        u32 remained_sz = std::min(size, file_sz_ - offset);
         byte *wrt_ptr = buf;
         auto sector = readSector(sec_no).value();
-        u64 wrt_sz = std::min(remained_sz, (u64) (bpb.BPB_bytes_per_sec - off_in_bytes));
+        u32 wrt_sz = std::min(remained_sz, bpb.BPB_bytes_per_sec - off_in_bytes);
         memcpy(wrt_ptr, sector->read_ptr(off_in_bytes), wrt_sz);
         sec_no += 1;
         wrt_ptr += wrt_sz;
@@ -41,13 +40,13 @@ namespace fs {
         for (; remained_sz > 0 && readSector(sec_no).has_value();
                sec_no++, wrt_ptr += wrt_sz, remained_sz -= wrt_sz) {
             sector = readSector(sec_no).value();
-            wrt_sz = std::min((u64) bpb.BPB_bytes_per_sec, remained_sz);
+            wrt_sz = std::min((u32) bpb.BPB_bytes_per_sec, remained_sz);
             memcpy(wrt_ptr, sector->read_ptr(0), wrt_sz);
         }
         return wrt_ptr - buf;
     }
 
-    u64 File::write(const byte *buf, u64 size, u64 offset) noexcept {
+    u32 File::write(const byte *buf, u32 size, u32 offset) noexcept {
         fat32::BPB &bpb = fs_.bpb();
         u32 off_in_sec = offset / bpb.BPB_bytes_per_sec;
         u32 off_in_bytes = offset % bpb.BPB_bytes_per_sec;
@@ -56,10 +55,10 @@ namespace fs {
             return 0;
         }
 
-        u64 remained_sz = size;
+        u32 remained_sz = std::min(size, file_sz_ - offset);
         const byte *read_ptr = buf;
         auto sector = readSector(sec_no).value();
-        u64 read_sz = std::min(remained_sz, (u64) (bpb.BPB_bytes_per_sec - off_in_bytes));
+        u32 read_sz = std::min(remained_sz, bpb.BPB_bytes_per_sec - off_in_bytes);
         memcpy(sector->write_ptr(off_in_bytes), read_ptr, read_sz);
         sec_no += 1;
         read_ptr += read_sz;
@@ -67,7 +66,7 @@ namespace fs {
         for (; remained_sz > 0 && readSector(sec_no).has_value();
                sec_no++, read_ptr += read_sz, remained_sz -= read_sz) {
             sector = readSector(sec_no).value();
-            read_sz = std::min((u64) bpb.BPB_bytes_per_sec, remained_sz);
+            read_sz = std::min((u32) bpb.BPB_bytes_per_sec, remained_sz);
             memcpy(sector->write_ptr(0), read_ptr, read_sz);
         }
         return read_ptr - buf;
@@ -260,7 +259,7 @@ namespace fs {
             }
         }
 
-        // alloc more when not enough empty space
+        // alloc more when there is not enough empty space
         if (free_entry_cnt < required_entry_num) {
             if (this->truncate(file_sz_ + (required_entry_num - free_entry_cnt) * sizeof(fat32::LongDirEntry))) {
                 if (free_entry_cnt == 0) {
@@ -276,6 +275,7 @@ namespace fs {
         u8 chk_sum = fat32::chkSum(basis_name);
         u32 off = 0;
 
+        // write the dir entries onto the disk, create and return a File object.
         for (u32 l_dir_ord = 1; l_dir_ord <= required_entry_num - 1; l_dir_ord++) {
             bool is_lst = (l_dir_ord == required_entry_num - 1);
             fat32::LongDirEntry l_dir_entry = fat32::mkLongDirEntry(is_lst, l_dir_ord, chk_sum, utf16_name, off);
@@ -285,8 +285,10 @@ namespace fs {
         const fat32::ShortDirEntry s_dir_entry = fat32::mkShortDirEntry(basis_name, false);
         writeDirEntry(free_entry_start + required_entry_num - 1, *(fat32::LongDirEntry *) (&s_dir_entry));
 
-        return std::make_shared<File>(this->parent_clus_, free_entry_start,
-                                      this->fs_, std::move(utf8_name), &s_dir_entry);
+        auto file = std::make_shared<File>(this->parent_clus_, free_entry_start,
+                                           this->fs_, std::move(utf8_name), &s_dir_entry);
+        this->fs_.addFile(file);
+        return file;
     }
 
     optional<shared_ptr<Directory>> Directory::crtDir(const char *name) noexcept {}
@@ -351,6 +353,8 @@ namespace fs {
     std::optional<shared_ptr<File>> FAT32fs::getFile(u64 ino) noexcept {}
 
     std::optional<shared_ptr<Directory>> FAT32fs::getDir(u64 ino) noexcept {}
+
+    void FAT32fs::addFile(shared_ptr<File> file) noexcept {}
 
     optional<shared_ptr<File>> FAT32fs::openFile(u64 ino) noexcept {}
 

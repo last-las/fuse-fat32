@@ -5,6 +5,7 @@
 #include "fat32.h"
 #include "util.h"
 
+// todo: move the platform dependencies to a separate file.
 namespace fat32 {
     bool isValidFat32BPB(BPB &bpb) {
         // check BS_jmpBoot

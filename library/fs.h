@@ -23,9 +23,9 @@ namespace fs {
          * */
         const char *name() noexcept;
 
-        u64 read(byte *buf, u64 size, u64 offset) noexcept;
+        u32 read(byte *buf, u32 size, u32 offset) noexcept;
 
-        u64 write(const byte *buf, u64 size, u64 offset) noexcept;
+        u32 write(const byte *buf, u32 size, u32 offset) noexcept;
 
         void sync(bool sync_meta) noexcept;
 
@@ -149,6 +149,11 @@ namespace fs {
         optional<shared_ptr<File>> getFile(u64 ino) noexcept;
 
         optional<shared_ptr<Directory>> getDir(u64 ino) noexcept;
+
+        /**
+         * Add a File object to lru cache.
+         * */
+        void addFile(shared_ptr<File> file) noexcept;
 
         /**
          * Get file from `cached_lookup_files_`, and store it in `cached_open_files`.

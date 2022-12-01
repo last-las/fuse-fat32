@@ -234,6 +234,7 @@ static void fat32_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi
     fuse_reply_open(req, fi);
 }
 
+// todo: make sure size is less than u32::max
 static void fat32_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
     // TODO: optimize here... this seems a little dumb
     auto file = getExistFile(ino);
