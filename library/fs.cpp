@@ -109,10 +109,9 @@ namespace fs {
         }
     }
 
-    // todo: The fst_clus might be 0x00!
-    // todo: mark the dir_entry.ord 0x00 when remove some clusters...; change the file_sz_.
     bool File::truncate(u32 length) noexcept {
-        u32 clus_num = (length == 0 ? 0 : length - 1) / fat32::bytesPerClus(fs_.bpb()) + 1;
+        file_sz_ = length;
+        u32 clus_num = length == 0 ? 0 : ((length - 1) / fat32::bytesPerClus(fs_.bpb()) + 1);
         if (fs_.fat().resize(fst_clus_, clus_num)) {
             clus_chain_ = std::nullopt;
             return true;
@@ -136,7 +135,12 @@ namespace fs {
         return false;
     }
 
+    // todo: make sure if the file has been deleted other operation on this object should always fail.
     void File::markDeleted() noexcept {
+        if (is_deleted_) {
+            return;
+        }
+
         // 1. delete dir entry occupied by current file
         auto p_clus_chain = fs_.fat().readClusChains(parent_clus_);
         u32 clus_i = 0;
@@ -148,7 +152,7 @@ namespace fs {
             sec = fs_.device().readSector(sec_no).value();
             auto *dir_entry = (fat32::LongDirEntry *) sec->write_ptr(sec_off);
             u8 attr = dir_entry->attr;
-            memset(dir_entry, 0x00, sizeof(fat32::LongDirEntry)); // todo: fix this.
+            fat32::setDirEntryEmpty(*dir_entry);
             if ((attr & fat32::KAttrLongNameMask) != fat32::KAttrLongName) { // last dir entry is found
                 break;
             }

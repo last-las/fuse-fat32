@@ -217,6 +217,10 @@ namespace fat32 {
         return dir_entry.ord == 0x00 || dir_entry.ord == 0xE5;
     }
 
+    inline void setDirEntryEmpty(LongDirEntry &dir_entry) {
+        dir_entry.ord = 0xE5;
+    }
+
     // Assume utf8_str can always be converted to a gbk encoding.
     struct BasisName {
         char primary[8 + 1];
