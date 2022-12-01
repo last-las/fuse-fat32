@@ -154,6 +154,27 @@ namespace fat32 {
         return unix_ts;
     }
 
+    util::string_utf16 readLongEntryName(LongDirEntry &long_dir_entry) {
+        util::string_utf16 utf16_name;
+        const u8 *name_ptr = &long_dir_entry.name1[0];
+        for (u32 i = 0; i < 26; i += 2) {
+            if ((name_ptr[0] == 0x00 && name_ptr[1] == 0x00) || (name_ptr[0] == 0xFF && name_ptr[1] == 0xFF)) {
+                break;
+            }
+            utf16_name.push_back((char) name_ptr[0]);
+            utf16_name.push_back((char) name_ptr[1]);
+            name_ptr += 2;
+
+            if (i + 2 == 10) {
+                name_ptr = &long_dir_entry.name2[0];
+            } else if (i + 2 == 22) {
+                name_ptr = &long_dir_entry.name3[0];
+            }
+        }
+
+        return utf16_name;
+    }
+
     LongDirEntry mkLongDirEntry(bool is_lst, u8 ord, u8 chk_sum, util::string_utf16 &name, u32 off) {
         LongDirEntry long_dir_entry;
         long_dir_entry.ord = is_lst ? KLastLongEntry | ord : ord;

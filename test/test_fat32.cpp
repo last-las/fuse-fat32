@@ -29,7 +29,6 @@ std::string long_names[KNameCnt] = {
         "你好世界.txt",
         "你好1世界.txt",
 };
-
 fat32::BasisName basis_names[KNameCnt] = {
         {"SHORT   ",                         "   "},
         {"SHORT   ",                         "EXT"},
@@ -43,6 +42,14 @@ fat32::BasisName basis_names[KNameCnt] = {
         {"A       ",                         "TXT"}, // Note that on win10, the "a.b.c.txt" is converted to "ABC.TXT".
         {"\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", "TXT"},
         {"\xc4\xe3\xba\xc3\x31\xca\xc0\xbd", "TXT"},
+};
+const u8 fst_entry_data[32] = {
+        0x01, 0x64, 0x00, 0x61, 0x00, 0x6D, 0x00, 0x6E, 0x00, 0x6C, 0x00, 0x0F, 0x00, 0x66, 0x6F, 0x00,
+        0x6E, 0x00, 0x67, 0x00, 0x6E, 0x00, 0x61, 0x00, 0x6D, 0x00, 0x00, 0x00, 0x65, 0x00, 0x2E, 0x00
+};
+const u8 lst_entry_data[32] = {
+        0x42, 0x74, 0x00, 0x78, 0x00, 0x74, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x0F, 0x00, 0x66, 0xFF, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF
 };
 
 /**
@@ -122,6 +129,19 @@ TEST(FAT32Test, readShortDirEntryName) {
     ASSERT_STREQ("SHORT.NO", read_name.c_str());
 }
 
+TEST(FAT32Test, readLongDirEntryName) {
+    util::string_utf8 name = "damnlongname.txt";
+    auto *fst_dir_entry = (fat32::LongDirEntry *) &fst_entry_data;
+    auto *lst_dir_entry = (fat32::LongDirEntry *) &lst_entry_data;
+
+    util::string_utf16 read_utf16_name;
+    read_utf16_name += fat32::readLongEntryName(*fst_dir_entry);
+    read_utf16_name += fat32::readLongEntryName(*lst_dir_entry);
+    util::string_utf8 read_utf8_name = util::utf16ToUtf8(read_utf16_name).value();
+
+    ASSERT_STREQ(name.c_str(), read_utf8_name.c_str());
+}
+
 TEST(FAT32Test, unixDosCvt) {
     timespec unix_ts;
     ASSERT_EQ(clock_gettime(CLOCK_REALTIME, &unix_ts), 0);
@@ -160,14 +180,6 @@ TEST(FAT32Test, chkSum) {
 }
 
 TEST(FAT32Test, mkLongDirEntry) {
-    const u8 fst_entry_data[32] = {
-            0x01, 0x64, 0x00, 0x61, 0x00, 0x6D, 0x00, 0x6E, 0x00, 0x6C, 0x00, 0x0F, 0x00, 0x66, 0x6F, 0x00,
-            0x6E, 0x00, 0x67, 0x00, 0x6E, 0x00, 0x61, 0x00, 0x6D, 0x00, 0x00, 0x00, 0x65, 0x00, 0x2E, 0x00
-    };
-    const u8 lst_entry_data[32] = {
-            0x42, 0x74, 0x00, 0x78, 0x00, 0x74, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x0F, 0x00, 0x66, 0xFF, 0xFF,
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF
-    };
     util::string_utf8 utf8_name = "damnlongname.txt";
     util::string_utf16 utf16_name = util::utf8ToUtf16(utf8_name).value();
     u8 chk_sum = 0x66;
