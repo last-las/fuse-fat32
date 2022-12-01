@@ -332,11 +332,20 @@ namespace fs {
 
 
     optional<fat32::LongDirEntry> Directory::readDirEntry(u32 n) noexcept {
-        // todo
+        fat32::LongDirEntry l_dir_entry{};
+        u32 entry_sz = sizeof(fat32::LongDirEntry);
+        u32 rd_sz = this->read((byte *) &l_dir_entry, entry_sz, entry_sz * n);
+        if (rd_sz == entry_sz) {
+            return {l_dir_entry};
+        } else {
+            return std::nullopt;
+        }
     }
 
     bool Directory::writeDirEntry(u32 n, fat32::LongDirEntry &dir_entry) noexcept {
-        // todo
+        u32 entry_sz = sizeof(fat32::LongDirEntry);
+        u32 wrt_sz = this->write((const byte *) &dir_entry, entry_sz, entry_sz * n);
+        return wrt_sz == entry_sz;
     }
 
     /**
