@@ -228,8 +228,7 @@ namespace fat32 {
 
     BasisName genBasisNameFrom(util::string_utf8 long_name) {
         // to upper case and strip ' ' & '.'
-        for (auto &c: long_name)
-            c = std::toupper(c);
+        util::toUpper(long_name);
         util::strip(long_name, ' ');
         util::strip(long_name, '.');
 

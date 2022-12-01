@@ -70,6 +70,8 @@ namespace util {
 
     std::optional<string_utf8> utf16ToUtf8(string_utf16 &utf16_str) noexcept;
 
+    void toUpper(string_utf8 &utf8_str) noexcept;
+
     void lstrip(std::string &s, char a) noexcept;
 
     void rstrip(std::string &s, char a) noexcept;

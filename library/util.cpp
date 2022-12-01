@@ -90,6 +90,10 @@ namespace util {
         return result;
     }
 
+    void toUpper(string_utf8 &utf8_str) noexcept {
+        for (auto &c: utf8_str) c = (char) std::toupper(c);
+    }
+
     void lstrip(std::string &s, char a) noexcept {
         s.erase(s.begin(), std::find_if(s.begin(), s.end(), [&a](char ch) {
             return ch != a;
