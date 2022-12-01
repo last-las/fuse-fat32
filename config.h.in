@@ -1,0 +1,18 @@
+#pragma once
+#cmakedefine HAVE_FORK
+#cmakedefine HAVE_FSTATAT
+#cmakedefine HAVE_OPENAT
+#cmakedefine HAVE_READLINKAT
+#cmakedefine HAVE_PIPE2
+#cmakedefine HAVE_SPLICE
+#cmakedefine HAVE_VMSPLICE
+#cmakedefine HAVE_POSIX_FALLOCATE
+#cmakedefine HAVE_FDATASYNC
+#cmakedefine HAVE_UTIMENSAT
+#cmakedefine HAVE_COPY_FILE_RANGE
+#cmakedefine HAVE_FALLOCATE
+#cmakedefine HAVE_SETXATTR
+#cmakedefine HAVE_ICONV
+#cmakedefine HAVE_STRUCT_STAT_ST_ATIM
+#cmakedefine HAVE_STRUCT_STAT_ST_ATIMESPEC
+#define PACKAGE_VERSION "3.12.0"
