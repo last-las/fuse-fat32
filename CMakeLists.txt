@@ -3,7 +3,9 @@ project(stupid-fat32)
 set(CMAKE_CXX_STANDARD 17)
 include(CheckSymbolExists)
 include(CheckStructHasMember)
-# todo: search iconv; use 3.12 libfuse version
+# todo:use 3.12 libfuse version
+
+find_package(Iconv REQUIRED)
 
 # gen config.h for libfuse(ref: libfuse/meson.build)
 set(CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE)
