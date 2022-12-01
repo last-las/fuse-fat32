@@ -160,7 +160,7 @@ static void fat32_unlink(fuse_req_t req, fuse_ino_t parent, const char *name) {
         fuse_reply_err(req, EISDIR);
         return;
     }
-    assert(parent_dir->delFileEntry(name));
+    assert(parent_dir->delFile(name));
     child->markDeleted();
     fuse_reply_err(req, 0);
 }
@@ -178,7 +178,7 @@ static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
         fuse_reply_err(req, ENOTDIR);
         return;
     }
-    assert(parent_dir->delFileEntry(name));
+    assert(parent_dir->delFile(name));
     child->markDeleted();
     fuse_reply_err(req, 0);
 }
@@ -210,11 +210,11 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
                 return;
             }
         }
-        old_parent->delFileEntry(name);
+        old_parent->delFile(name);
         new_file->exchangeFstClus(old_file);
         old_file->markDeleted();
     } else { // newname doesn't exist
-        old_parent->delFileEntry(name);
+        old_parent->delFile(name);
         auto result = new_parent->crtFile(newname);
         if (!result.has_value()) {
             fuse_reply_err(req, EFBIG);

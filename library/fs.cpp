@@ -7,6 +7,7 @@
 #include "fat32.h"
 
 // todo: change the AccDate and WrtTime/WrtData when read and write!
+// todo: for directory, sync should not write the file size(or test whether the driver still work after writing it).
 namespace fs {
     /**
      * File
@@ -99,7 +100,9 @@ namespace fs {
             short_dir_entry->crt_ts2 = crt_time_;
             short_dir_entry->lst_acc_date = acc_date_;
             short_dir_entry->wrt_ts = wrt_time_;
-            short_dir_entry->file_sz = file_sz_;
+            if (!isDir()) { // todo: check grammar about key word virtue
+                short_dir_entry->file_sz = file_sz_;
+            }
             fat32::setEntryClusNo(*short_dir_entry, fst_clus_);
         }
 
@@ -252,11 +255,58 @@ namespace fs {
         }
     }
 
-    bool Directory::delFileEntry(const char *name) noexcept {
-        // 1. convert the name to utf16;
-        // 2. traverse the content, try to find the name;
-        // 3. remove all the dir entries related to name;
-        // 4. determine whether to shrink the content.
+    // todo: shrink the size when necessary
+    bool Directory::delFile(const char *name) noexcept {
+        util::string_utf8 utf8_name(name);
+        util::string_utf16 utf16_name = util::utf8ToUtf16(utf8_name).value();
+        util::toUpper(utf8_name);
+
+        // traverse entries, try to find target name
+        bool is_find = false, has_l_entry = false;
+        u32 target_entry_start, target_entry_cnt = 0;
+        util::string_utf16 read_utf16_name;
+        std::optional<fat32::LongDirEntry> result;
+        fat32::LongDirEntry l_dir_entry{};
+        fat32::ShortDirEntry s_dir_entry{};
+        for (u32 cur_entry = 0; (result = readDirEntry(cur_entry)).has_value(); cur_entry++) {
+            l_dir_entry = result.value();
+            if (target_entry_cnt == 0) {
+                target_entry_start = cur_entry;
+            }
+            target_entry_cnt++;
+
+            if (!fat32::isLongDirEntry(l_dir_entry)) { // find a short dir entry, judge whether it's the target
+                s_dir_entry = fat32::castLongDirEntryToShort(l_dir_entry);
+                if ((has_l_entry && read_utf16_name == utf16_name)
+                    || (!has_l_entry && fat32::readShortEntryName(s_dir_entry) == utf8_name)) {
+                    is_find = true;
+                    break;
+                }
+
+                // not the target name, continue reading
+                has_l_entry = false;
+                target_entry_cnt = 0;
+                read_utf16_name = "";
+            } else { // find a long dir entry, record the name part
+                has_l_entry = true;
+                read_utf16_name.insert(0, fat32::readLongEntryName(l_dir_entry));
+            }
+        }
+
+        if (!is_find) {
+            return false;
+        }
+
+        // remove all the dir entries related to target name
+        u32 cur_no;
+        for (cur_no = target_entry_start; cur_no < target_entry_start + target_entry_cnt; cur_no++) {
+            fat32::LongDirEntry dir_entry{};
+            fat32::setDirEntryEmpty(dir_entry);
+            writeDirEntry(cur_no, dir_entry); // inefficient but easy to understand...
+        }
+
+        fs_.rmFileFromCache(name);
+        return true;
     }
 
     optional<shared_ptr<File>> Directory::lookupFile(const char *name) noexcept {
@@ -272,6 +322,7 @@ namespace fs {
         return true;
     }
 
+    // todo: check whether the same name exists!
     optional<shared_ptr<File>> Directory::crtFileInner(const char *name, bool is_dir) noexcept {
         // convert the name to utf16 and calc required entry num
         util::string_utf8 utf8_name(name);
@@ -326,7 +377,7 @@ namespace fs {
 
         auto file = std::make_shared<File>(this->parent_clus_, free_entry_start,
                                            this->fs_, std::move(utf8_name), &s_dir_entry);
-        this->fs_.addFile(file);
+        this->fs_.addFileToCache(file);
         return file;
     }
 
@@ -381,7 +432,9 @@ namespace fs {
 
     std::optional<shared_ptr<Directory>> FAT32fs::getDir(u64 ino) noexcept {}
 
-    void FAT32fs::addFile(shared_ptr<File> file) noexcept {}
+    void FAT32fs::addFileToCache(shared_ptr<File> file) noexcept {}
+
+    void FAT32fs::rmFileFromCache(const char *name) noexcept {}
 
     optional<shared_ptr<File>> FAT32fs::openFile(u64 ino) noexcept {}
 

@@ -107,7 +107,7 @@ namespace fs {
 
         optional<shared_ptr<Directory>> crtDir(const char *name) noexcept;
 
-        bool delFileEntry(const char *name) noexcept;
+        bool delFile(const char *name) noexcept;
 
         optional<shared_ptr<File>> lookupFile(const char *name) noexcept;
 
@@ -152,10 +152,9 @@ namespace fs {
 
         optional<shared_ptr<Directory>> getDir(u64 ino) noexcept;
 
-        /**
-         * Add a File object to lru cache.
-         * */
-        void addFile(shared_ptr<File> file) noexcept;
+        void addFileToCache(shared_ptr<File> file) noexcept;
+
+        void rmFileFromCache(const char *name) noexcept;
 
         /**
          * Get file from `cached_lookup_files_`, and store it in `cached_open_files`.

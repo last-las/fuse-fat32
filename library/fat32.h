@@ -21,6 +21,7 @@ namespace fat32 {
     const u32 KStrucSig = 0x61417272;
     const u32 KTrailSig = 0xAA550000;
     // Short Directory Entry
+    const u8 KDirEntrySize = 32;
     const u8 KAttrReadOnly = 0x01;
     const u8 KAttrHidden = 0x02;
     const u8 KAttrSystem = 0x04;
