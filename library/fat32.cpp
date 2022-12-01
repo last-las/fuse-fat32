@@ -63,7 +63,31 @@ namespace fat32 {
 
     std::string readShortEntryName(ShortDirEntry &short_dir_entry) {
         assert(parseEntryType(short_dir_entry) == EntryType::KExist);
+        std::string name;
+        u8 c;
+        // read primary
+        for (int i = 0; i < 8; ++i) {
+            if ((c = short_dir_entry.name[i]) == ' ') {
+                break;
+            }
+            if (i == 0 && c == 0x05) {
+                name.push_back((char) 0xe5);
+                continue;
+            }
+            name.push_back((char) c);
+        }
+        // read (possible) extension
+        for (int i = 8; i < 11; ++i) {
+            if ((c = short_dir_entry.name[i]) == ' ') {
+                break;
+            }
+            if (i == 8) {
+                name.push_back('.');
+            }
+            name.push_back((char) c);
+        }
 
+        return name;
     }
 
     bool containIllegalShortDirEntryChr(u8 val) {

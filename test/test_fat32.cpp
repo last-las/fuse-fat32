@@ -112,6 +112,16 @@ TEST(FAT32Test, EntryClusNo) {
     ASSERT_EQ(readEntryClusNo(short_dir_entry), clus_no);
 }
 
+TEST(FAT32Test, readShortDirEntryName) {
+    u8 data[32] = {
+            0x53, 0x48, 0x4F, 0x52, 0x54, 0x20, 0x20, 0x20, 0x4E, 0x4F, 0x20, 0x20, 0x18, 0xB9, 0x30, 0x8B,
+            0x81, 0x55, 0x81, 0x55, 0x00, 0x00, 0x31, 0x8B, 0x81, 0x55, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
+    auto *short_dir_entry = (fat32::ShortDirEntry *) &data;
+    std::string read_name = fat32::readShortEntryName(*short_dir_entry);
+    ASSERT_STREQ("SHORT.NO", read_name.c_str());
+}
+
 TEST(FAT32Test, unixDosCvt) {
     timespec unix_ts;
     ASSERT_EQ(clock_gettime(CLOCK_REALTIME, &unix_ts), 0);
