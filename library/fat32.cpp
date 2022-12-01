@@ -344,23 +344,25 @@ namespace fat32 {
         return clus_chains;
     }
 
-    bool FAT::resize(u32 fst_clus, u32 clus_num) noexcept {
+    bool FAT::resize(u32 &fst_clus, u32 clus_num) noexcept {
         FATPos fat_pos;
         u32 pre_clus = fst_clus;
         u32 cur_clus = fst_clus;
         u32 clus_cnt = 0;
-        while (!isEndOfClusChain(cur_clus)) {
-            pre_clus = cur_clus;
-            fat_pos = getClusPosOnFAT(bpb_, cur_clus);
-            cur_clus = readFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset);
-            clus_cnt++;
-            if (clus_cnt > clus_num) { // free (clus_cnt - clus_num) sectors
-                fat_pos = getClusPosOnFAT(bpb_, pre_clus);
-                writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, 0);
-                dec_avail_cnt(1);
-            } else if (clus_cnt == clus_num) {
-                fat_pos = getClusPosOnFAT(bpb_, pre_clus);
-                writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, KFat32EocMark);
+        if (isValidCluster(fst_clus)) {
+            while (!isEndOfClusChain(cur_clus)) {
+                pre_clus = cur_clus;
+                fat_pos = getClusPosOnFAT(bpb_, cur_clus);
+                cur_clus = readFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset);
+                clus_cnt++;
+                if (clus_cnt > clus_num) { // free (clus_cnt - clus_num) sectors
+                    fat_pos = getClusPosOnFAT(bpb_, pre_clus);
+                    writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, 0);
+                    dec_avail_cnt(1);
+                } else if (clus_cnt == clus_num) {
+                    fat_pos = getClusPosOnFAT(bpb_, pre_clus);
+                    writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, KFat32EocMark);
+                }
             }
         }
 
@@ -371,8 +373,14 @@ namespace fat32 {
             }
             auto clus_chain = result.value();
             u32 alloc_fst_clus = clus_chain[0];
-            fat_pos = getClusPosOnFAT(bpb_, pre_clus);
-            writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, alloc_fst_clus);
+            if (!isValidCluster(fst_clus)) {
+                fst_clus = alloc_fst_clus;
+            } else {
+                fat_pos = getClusPosOnFAT(bpb_, pre_clus);
+                writeFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset, alloc_fst_clus);
+            }
+        } else if (clus_num == 0) {
+            fst_clus = 0;
         }
 
         return true;

@@ -107,6 +107,10 @@ namespace fat32 {
         u32 fat_ent_offset;
     };
 
+    inline bool isValidCluster(u32 clus_no) {
+        return clus_no != 0 && clus_no != 1;
+    }
+
     FATPos getClusPosOnFAT(BPB &bpb, u32 n);
 
     inline u32 readFATClusEntryVal(const u8 *sec_buff, u32 fat_ent_offset) {
@@ -118,8 +122,8 @@ namespace fat32 {
     /**
      * EOC checker function
      * */
-    inline bool isEndOfClusChain(u32 fat_content) {
-        return fat_content >= 0x0FFFFFF8;
+    inline bool isEndOfClusChain(u32 clus_no) {
+        return clus_no >= 0x0FFFFFF8;
     }
 
     // todo
@@ -240,7 +244,10 @@ namespace fat32 {
 
         std::vector<u32> readClusChains(u32 fst_clus) noexcept;
 
-        bool resize(u32 fst_clus, u32 clus_num) noexcept;
+        // If fst_clus is invalid, it may be written with a valid cluster number;
+        // If clus_num is zero, fst_clus will be written with a zero;
+        // In other situation, fst_clus won't be changed.
+        bool resize(u32 &fst_clus, u32 clus_num) noexcept;
 
         // todo: perform writing on all the fats
         void writeFatEntry(u32 sec_no, u32 fat_ent_offset, u32 val) noexcept;

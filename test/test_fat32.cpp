@@ -68,7 +68,7 @@ public:
     }
 };
 
-static bool isEmptyFAT() {
+static bool isOriginFAT() {
     device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
     u8 const *snapshot_ptr = &fat_snapshot[0];
     for (u32 sec_no = start_sec_no_; sec_no < start_sec_no_ + fat_sec_no_ * fat_num_; sec_no++) {
@@ -205,13 +205,13 @@ TEST(FAT32Test, AllocFree) {
     clus_chain = fat.allocClus(10).value();
     fst_clus = clus_chain[0];
     fat.freeClus(fst_clus);
-    ASSERT_TRUE(isEmptyFAT());
+    ASSERT_TRUE(isOriginFAT());
 
     // large alloc
     clus_chain = fat.allocClus(avail_clus_cnt).value();
     fst_clus = clus_chain[0];
     fat.freeClus(fst_clus);
-    ASSERT_TRUE(isEmptyFAT());
+    ASSERT_TRUE(isOriginFAT());
 
     // random alloc
     ASSERT_EQ(fat.allocClus(100).value()[0], 3);
@@ -223,7 +223,7 @@ TEST(FAT32Test, AllocFree) {
     fat.freeClus(3);
     fat.freeClus(103);
     fat.freeClus(203);
-    ASSERT_TRUE(isEmptyFAT());
+    ASSERT_TRUE(isOriginFAT());
 
     // failed alloc
     ASSERT_FALSE(fat.allocClus(avail_clus_cnt + 1).has_value());
@@ -247,7 +247,7 @@ TEST(FAT32Test, SetFreeCount) {
 
     // clear
     fat.freeClus(clus_chain[0]);
-    ASSERT_TRUE(isEmptyFAT());
+    ASSERT_TRUE(isOriginFAT());
 }
 
 TEST(FAT32Test, ReadClusChain) {
@@ -262,7 +262,7 @@ TEST(FAT32Test, ReadClusChain) {
 
     // clear
     fat.freeClus(clus_chain[0]);
-    ASSERT_TRUE(isEmptyFAT());
+    ASSERT_TRUE(isOriginFAT());
 }
 
 TEST(FAT32Test, Resize) {
@@ -283,7 +283,25 @@ TEST(FAT32Test, Resize) {
 
     // clear
     fat.freeClus(fst_clus);
-    ASSERT_TRUE(isEmptyFAT());
+    ASSERT_TRUE(isOriginFAT());
+
+    // special case when fst_clus eq 0
+    fst_clus = 0;
+    {
+        // resize 0
+        ASSERT_TRUE(fat.resize(fst_clus, 0));
+        ASSERT_EQ(fst_clus, 0);
+        ASSERT_TRUE(isOriginFAT());
+
+        // resize non-zero
+        ASSERT_TRUE(fat.resize(fst_clus, 5));
+        ASSERT_EQ(fst_clus, 3);
+
+        // resize 0 again
+        ASSERT_TRUE(fat.resize(fst_clus, 0));
+        ASSERT_EQ(fst_clus, 0);
+        ASSERT_TRUE(isOriginFAT());
+    }
 }
 
 
