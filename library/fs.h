@@ -101,10 +101,32 @@ namespace fs {
         std::optional<std::vector<u32>> clus_chain_;
     };
 
+    /**
+     * Describe the range of a file's directory entries on parent directory.
+     * */
+    struct DirEntryRange {
+        /**
+         * Number of first directory entry on parent directory.
+         * */
+        u32 start;
+        /**
+         * The total counts of long directory entries and short directory entry.
+         * */
+        u32 count;
+    };
+
     class Directory : public File {
     public:
+        /**
+         * Create an empty file and add to lru cache.
+         * This function won't check whether the name exists, call `lookupFile` before if necessary.
+         * */
         optional<shared_ptr<File>> crtFile(const char *name) noexcept;
 
+        /**
+         * Create an empty Directory and add to lru cache.
+         * This function won't check whether the name exists, call `lookupFile` before if necessary.
+         * */
         optional<shared_ptr<Directory>> crtDir(const char *name) noexcept;
 
         bool delFile(const char *name) noexcept;
@@ -125,6 +147,8 @@ namespace fs {
 
     private:
         optional<shared_ptr<File>> crtFileInner(const char *name, bool is_dir) noexcept;
+
+        optional<DirEntryRange> lookupFileInner(const char *name) noexcept;
 
         /**
          * Read the nth directory entry, starting from zero.
@@ -150,7 +174,11 @@ namespace fs {
 
         optional<shared_ptr<File>> getFile(u64 ino) noexcept;
 
+        optional<shared_ptr<File>> getFile(const char *name) noexcept;
+
         optional<shared_ptr<Directory>> getDir(u64 ino) noexcept;
+
+        optional<shared_ptr<Directory>> getDir(const char *name) noexcept;
 
         void addFileToCache(shared_ptr<File> file) noexcept;
 
@@ -178,7 +206,7 @@ namespace fs {
         device::Device &device_;
     private:
         util::LRUCacheMap<u64, shared_ptr<File>> cached_lookup_files_{20};
-        std::unordered_map<u64, shared_ptr<File>> cached_open_files_;
+        std::unordered_map<u64, shared_ptr<File>> cached_open_files_; // todo: remove the structure, and refactor `openFile()`
     };
 
 } // namespace fs
