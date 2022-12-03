@@ -7,8 +7,6 @@
 #include "fat32.h"
 
 // todo: long directory is not checked(eg, chksum) for simplicity..
-// todo: change the AccDate and WrtTime/WrtData when read and write!
-// todo: for directory, sync should not write the file size(or test whether the driver still work after writing it).
 namespace fs {
     /**
      * File
@@ -46,6 +44,8 @@ namespace fs {
             wrt_sz = std::min((u32) bpb.BPB_bytes_per_sec, remained_sz);
             memcpy(wrt_ptr, sector->read_ptr(0), wrt_sz);
         }
+
+        setAccTime(fat32::getCurDosTs());
         return wrt_ptr - buf;
     }
 
@@ -72,6 +72,7 @@ namespace fs {
             read_sz = std::min((u32) bpb.BPB_bytes_per_sec, remained_sz);
             memcpy(sector->write_ptr(0), read_ptr, read_sz);
         }
+        setWrtTime(fat32::getCurDosTs());
         return read_ptr - buf;
     }
 
@@ -101,9 +102,7 @@ namespace fs {
             short_dir_entry->crt_ts2 = crt_time_;
             short_dir_entry->lst_acc_date = acc_date_;
             short_dir_entry->wrt_ts = wrt_time_;
-            if (!isDir()) { // todo: check grammar about key word virtue
-                short_dir_entry->file_sz = file_sz_;
-            }
+            short_dir_entry->file_sz = file_sz_;  // todo: for directory, sync should not write the file size(or test whether the driver still work after writing it).
             fat32::setEntryClusNo(*short_dir_entry, fst_clus_);
         }
 
@@ -140,13 +139,12 @@ namespace fs {
         return false;
     }
 
-    // todo: make sure if the file has been deleted other operation on this object should always fail.
     void File::markDeleted() noexcept {
         if (is_deleted_) {
             return;
         }
 
-        // 1. delete dir entry occupied by current file
+        // delete dir entry occupied by current file
         auto p_clus_chain = fs_.fat().readClusChains(parent_clus_);
         u32 clus_i = 0;
         u32 sec_i = (fst_entry_num_ * sizeof(fat32::LongDirEntry)) / fs_.bpb().BPB_bytes_per_sec;
@@ -163,8 +161,11 @@ namespace fs {
             }
         } while (iterClusChainEntry(p_clus_chain, clus_i, sec_i, sec_off));
 
-        // 2. remove clus chain
+        // remove clus chain
         fs_.fat().freeClus(fst_clus_);
+
+        // remove from fs cache
+        fs_.rmFileFromCacheByName(name());
         is_deleted_ = true;
     }
 
@@ -172,16 +173,25 @@ namespace fs {
         return ((u64) parent_clus_ << 32) | fst_entry_num_;
     }
 
-    void File::exchangeFstClus(shared_ptr<File> target) noexcept {
-        // record current file's sz and fst_clus for exchange.
-        u32 this_file_sz = file_sz_;
-        u32 this_fst_clus = fst_clus_;
+    void File::exchangeMetaData(shared_ptr<File> target) noexcept {
+        // record current file's meta info for exchange.
+        auto this_file_sz = file_sz_;
+        auto this_fst_clus = fst_clus_;
+        auto this_crt_time = crt_time_;
+        auto this_acc_date = acc_date_;
+        auto this_wrt_time = wrt_time_;
 
         // exchange
         this->file_sz_ = target->file_sz_;
         this->fst_clus_ = target->fst_clus_;
+        this->crt_time_ = target->crt_time_;
+        this->acc_date_ = target->acc_date_;
+        this->wrt_time_ = target->wrt_time_;
         target->file_sz_ = this_file_sz;
         target->fst_clus_ = this_fst_clus;
+        target->crt_time_ = this_crt_time;
+        target->acc_date_ = this_acc_date;
+        target->wrt_time_ = this_wrt_time;
 
         this->sync(true);
         target->sync(true);
@@ -256,7 +266,6 @@ namespace fs {
         }
     }
 
-    // todo: shrink the size when necessary
     bool Directory::delFile(const char *name) noexcept {
         auto result = lookupFileInner(name);
         if (!result.has_value()) {
@@ -272,7 +281,18 @@ namespace fs {
             writeDirEntry(cur_no, dir_entry); // inefficient but easy to understand...
         }
 
-        fs_.rmFileFromCache(name);
+        u32 short_dir_entry_no = range.start + range.count - 1;
+        if (isLstNonEmptyEntry(short_dir_entry_no)) {
+            // mark the short dir entry last empty
+            fat32::LongDirEntry dir_entry{};
+            fat32::setDirEntryLstEmpty(dir_entry);
+            writeDirEntry(short_dir_entry_no, dir_entry);
+
+            // shrink the Directory size
+            truncate((range.start + 1) * fat32::KDirEntrySize);
+        }
+
+        fs_.rmFileFromCacheByName(name);
         return true;
     }
 
@@ -301,15 +321,16 @@ namespace fs {
         fat32::ShortDirEntry s_dir_entry{};
         u32 entry_start = 0, entry_cnt = 0;
 
-        // skip possible empty entry
+        // skip possible empty entries
         while ((result = readDirEntry(entry_off)).has_value() && fat32::isEmptyDirEntry(result.value())) {
             entry_off++;
         }
 
-        // reach the end of directory, return null
-        if (!result.has_value()) {
+        if (!result.has_value() || fat32::isLstEmptyDirEntry(result.value())) {
+            // reach the end of directory, return null
             return std::nullopt;
         }
+
         entry_start = entry_off;
 
         // record all the entries until a short entry is found
@@ -328,14 +349,21 @@ namespace fs {
             l_dir_entries.push_front(l_dir_entry);
         }
 
-        util::string_utf8 name = fat32::readShortEntryName(s_dir_entry);
+
+        util::string_gbk short_name = fat32::readShortEntryName(s_dir_entry);
+        util::string_utf8 name;
         if (!l_dir_entries.empty()) {
-            // todo: check if dir entry is valid.
+            auto basis_name = fat32::genBasisNameFromShort(short_name);
+            u8 chk_sum = fat32::chkSum(basis_name);
+
             util::string_utf16 utf16_name;
             for (const auto &dir_entry: l_dir_entries) {
+                assert(fat32::isValidLongDirEntry(dir_entry, chk_sum));
                 utf16_name += fat32::readLongEntryName(dir_entry);
             }
             name = util::utf16ToUtf8(utf16_name).value();
+        } else {
+            name = util::gbkToUtf8(short_name).value();
         }
 
         auto cache_result = fs_.getFile(name.c_str());
@@ -393,7 +421,7 @@ namespace fs {
         }
 
         // calculate CRC and generate basis-name of short dir entry
-        fat32::BasisName basis_name = fat32::genBasisNameFrom(utf8_name);
+        fat32::BasisName basis_name = fat32::genBasisNameFromLong(utf8_name);
         u8 chk_sum = fat32::chkSum(basis_name);
         u32 off = 0;
 
@@ -417,25 +445,44 @@ namespace fs {
         util::string_utf8 utf8_name(name);
         util::string_utf16 utf16_name = util::utf8ToUtf16(utf8_name).value();
         util::toUpper(utf8_name);
+        util::string_gbk gbk_name = util::utf8ToGbk(utf8_name).value();
 
         // traverse entries, try to find target name
         bool is_find = false, has_l_entry = false;
         u32 target_entry_start, target_entry_cnt = 0;
-        util::string_utf16 read_utf16_name;
+        u8 chk_sum;
+        util::string_utf16 read_long_name;
         std::optional<fat32::LongDirEntry> result;
         fat32::LongDirEntry l_dir_entry{};
         fat32::ShortDirEntry s_dir_entry{};
         for (u32 cur_entry = 0; (result = readDirEntry(cur_entry)).has_value(); cur_entry++) {
             l_dir_entry = result.value();
+            if (fat32::isLstEmptyDirEntry(l_dir_entry)) {
+                break;
+            }
+            if (fat32::isEmptyDirEntry(l_dir_entry)) {
+                has_l_entry = false;
+                target_entry_cnt = 0;
+                read_long_name = "";
+                continue;
+            }
+
             if (target_entry_cnt == 0) {
                 target_entry_start = cur_entry;
+                chk_sum = l_dir_entry.chk_sum;
             }
+            assert(fat32::isValidLongDirEntry(l_dir_entry, chk_sum));
             target_entry_cnt++;
 
             if (!fat32::isLongDirEntry(l_dir_entry)) { // find a short dir entry, judge whether it's the target
                 s_dir_entry = fat32::castLongDirEntryToShort(l_dir_entry);
-                if ((has_l_entry && read_utf16_name == utf16_name)
-                    || (!has_l_entry && fat32::readShortEntryName(s_dir_entry) == utf8_name)) {
+                auto read_short_name = fat32::readShortEntryName(s_dir_entry);
+                auto basis_name = fat32::genBasisNameFromShort(read_short_name);
+
+                assert(fat32::chkSum(basis_name) == chk_sum);
+
+                if ((has_l_entry && read_long_name == utf16_name)
+                    || (!has_l_entry && read_short_name == gbk_name)) { // the lookup target is found
                     is_find = true;
                     break;
                 }
@@ -443,10 +490,10 @@ namespace fs {
                 // not the target name, continue reading
                 has_l_entry = false;
                 target_entry_cnt = 0;
-                read_utf16_name = "";
+                read_long_name = "";
             } else { // find a long dir entry, record the name part
                 has_l_entry = true;
-                read_utf16_name.insert(0, fat32::readLongEntryName(l_dir_entry));
+                read_long_name.insert(0, fat32::readLongEntryName(l_dir_entry));
             }
         }
 
@@ -457,8 +504,7 @@ namespace fs {
         }
     }
 
-    // todo: optimize lookupFileInner and crtFileInner
-    bool Directory::isLstNonEmptyEntry(int n) noexcept {
+    bool Directory::isLstNonEmptyEntry(i64 n) noexcept {
         n = n < 0 ? 0 : n + 1;
         optional<fat32::LongDirEntry> result;
         while ((result = readDirEntry(n)).has_value()) {
@@ -530,7 +576,7 @@ namespace fs {
 
     void FAT32fs::addFileToCache(shared_ptr<File> file) noexcept {}
 
-    void FAT32fs::rmFileFromCache(const char *name) noexcept {}
+    void FAT32fs::rmFileFromCacheByName(const char *name) noexcept {}
 
     optional<shared_ptr<File>> FAT32fs::openFile(u64 ino) noexcept {}
 

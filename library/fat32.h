@@ -169,6 +169,10 @@ namespace fat32 {
 
     timespec dos2UnixTs_2(FatTimeStamp2 fat_ts2);
 
+    fat32::FatTimeStamp getCurDosTs() noexcept;
+
+    fat32::FatTimeStamp2 getCurDosTs2() noexcept;
+
     struct ShortDirEntry {
         u8 name[11];
         byte attr;
@@ -187,7 +191,7 @@ namespace fat32 {
 
     EntryType parseEntryType(ShortDirEntry &short_dir_entry);
 
-    std::string readShortEntryName(ShortDirEntry &short_dir_entry);
+    util::string_gbk readShortEntryName(ShortDirEntry &short_dir_entry);
 
     // todo: fix this
     bool containIllegalShortDirEntryChr(u8 val);
@@ -214,8 +218,15 @@ namespace fat32 {
 
     util::string_utf16 readLongEntryName(const LongDirEntry &long_dir_entry);
 
-    inline bool isLongDirEntry(LongDirEntry &dir_entry) {
+    inline bool isLongDirEntry(const LongDirEntry &dir_entry) {
         return (dir_entry.attr & KAttrLongNameMask) == KAttrLongName;
+    }
+
+    inline bool isValidLongDirEntry(const LongDirEntry &dir_entry, u8 chk_sum) {
+        return isLongDirEntry(dir_entry)
+               && dir_entry.attr == 0
+               && dir_entry.chk_sum == chk_sum
+               && dir_entry.fst_clus_low == 0;
     }
 
     inline ShortDirEntry &castLongDirEntryToShort(LongDirEntry &l_dir_entry) {
@@ -236,6 +247,10 @@ namespace fat32 {
         dir_entry.ord = 0xE5;
     }
 
+    inline void setDirEntryLstEmpty(LongDirEntry &dir_entry) {
+        dir_entry.ord = 0x00;
+    }
+
     // Assume utf8_str can always be converted to a gbk encoding.
     struct BasisName {
         char primary[8 + 1];
@@ -248,7 +263,9 @@ namespace fat32 {
 
     BasisName mkEmptyBasisName();
 
-    BasisName genBasisNameFrom(util::string_utf8 long_name);
+    BasisName genBasisNameFromShort(util::string_gbk short_name);
+
+    BasisName genBasisNameFromLong(util::string_utf8 long_name);
 
     class FAT {
     public:

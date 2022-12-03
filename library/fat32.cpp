@@ -61,9 +61,9 @@ namespace fat32 {
         }
     }
 
-    std::string readShortEntryName(ShortDirEntry &short_dir_entry) {
+    util::string_gbk readShortEntryName(ShortDirEntry &short_dir_entry) {
         assert(parseEntryType(short_dir_entry) == EntryType::KExist);
-        std::string name;
+        util::string_gbk name;
         u8 c;
         // read primary
         for (int i = 0; i < 8; ++i) {
@@ -154,6 +154,18 @@ namespace fat32 {
         return unix_ts;
     }
 
+    FatTimeStamp getCurDosTs() noexcept {
+        timespec unix_ts;
+        assert(clock_gettime(CLOCK_REALTIME, &unix_ts) == 0);
+        return fat32::unix2DosTs(unix_ts);
+    }
+
+    FatTimeStamp2 getCurDosTs2() noexcept {
+        timespec unix_ts;
+        assert(clock_gettime(CLOCK_REALTIME, &unix_ts) == 0);
+        return fat32::unix2DosTs_2(unix_ts);
+    }
+
     util::string_utf16 readLongEntryName(const LongDirEntry &long_dir_entry) {
         util::string_utf16 utf16_name;
         const u8 *name_ptr = &long_dir_entry.name1[0];
@@ -208,10 +220,8 @@ namespace fat32 {
     }
 
     ShortDirEntry mkShortDirEntry(BasisName &basis_name, bool is_dir) {
-        timespec unix_ts;
-        clock_gettime(CLOCK_REALTIME, &unix_ts);
-        fat32::FatTimeStamp dos_ts = unix2DosTs(unix_ts);
-        fat32::FatTimeStamp2 dos_ts2 = unix2DosTs_2(unix_ts);
+        fat32::FatTimeStamp2 dos_ts2 = getCurDosTs2();
+        fat32::FatTimeStamp dos_ts = dos_ts2.ts;
 
         ShortDirEntry shortDirEntry{0};
         memcpy(&shortDirEntry.name[0], &basis_name.primary[0], 8);
@@ -247,7 +257,12 @@ namespace fat32 {
         return basis_name;
     }
 
-    BasisName genBasisNameFrom(util::string_utf8 long_name) {
+    BasisName genBasisNameFromShort(util::string_gbk short_name) {
+        // todo
+        assert(false);
+    }
+
+    BasisName genBasisNameFromLong(util::string_utf8 long_name) {
         // to upper case and strip ' ' & '.'
         util::toUpper(long_name);
         util::strip(long_name, ' ');

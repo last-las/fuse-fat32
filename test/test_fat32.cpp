@@ -192,7 +192,7 @@ TEST(FAT32Test, mkLongDirEntry) {
 TEST(FAT32Test, genBasisName) {
     fat32::BasisName gen_basis_name;
     for (u32 i = 0; i < KNameCnt; ++i) {
-        gen_basis_name = fat32::genBasisNameFrom(long_names[i]);
+        gen_basis_name = fat32::genBasisNameFromLong(long_names[i]);
         assert_basis_name_eq(gen_basis_name, basis_names[i]);
     }
 }

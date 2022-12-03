@@ -7,6 +7,7 @@
 
 // todo: move to namespace util
 typedef unsigned long long u64;
+typedef long long i64;
 typedef unsigned int u32;
 typedef unsigned short u16;
 typedef unsigned char u8;

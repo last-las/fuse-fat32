@@ -211,7 +211,7 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
             }
         }
         old_parent->delFile(name);
-        new_file->exchangeFstClus(old_file);
+        new_file->exchangeMetaData(old_file);
         old_file->markDeleted();
     } else { // newname doesn't exist
         old_parent->delFile(name);
@@ -221,7 +221,7 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
             return;
         }
         auto new_file = result.value();
-        new_file->exchangeFstClus(old_file);
+        new_file->exchangeMetaData(old_file);
         old_file->markDeleted();
     }
 
@@ -404,6 +404,8 @@ int main(int argc, char *argv[]) {
     // TODO: enable -o default_permissions;
     // TODO: make sure the path exists!
     // TODO: check the file name length!
+    // TODO: multiprocess: make sure if the file has been deleted other operation on this object should always fail.
+
     device::LinuxFileDriver dev = device::LinuxFileDriver("/dev/sdb1", SECTOR_SIZE);
     device::CacheManager cache_mgr = device::CacheManager(dev);
     auto fs = fs::FAT32fs::from(cache_mgr);

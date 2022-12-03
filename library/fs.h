@@ -47,7 +47,7 @@ namespace fs {
         /**
          * Exchange first cluster number and file size of the two files.
          * */
-        void exchangeFstClus(shared_ptr<File> target) noexcept;
+        void exchangeMetaData(shared_ptr<File> target) noexcept;
 
         /**
          * Read the nth sector of current file(the first sector is 0), or return nullptr when overflowed.
@@ -68,11 +68,18 @@ namespace fs {
          * */
         u32 parent_clus_;
         FAT32fs &fs_;
-
+        /**
+         * The creation time of the file, corresponding to linux "Change time".
+         * */
         fat32::FatTimeStamp2 crt_time_;
+        /**
+         * The last time the file was read, corresponding to linux "Access time".
+         * */
         fat32::FatDate acc_date_;
+        /**
+         * The last time the file was modified, corresponding to linux "Modify time".
+         * */
         fat32::FatTimeStamp wrt_time_;
-
         /**
          * Current file's first directory entry number in parent cluster, start with zero.
          * */
@@ -155,7 +162,7 @@ namespace fs {
          * Check whether the nth directory entry is the last non-empty entry by traversing the whole directory.
          * If n is less than zero, it returns true if the directory is empty.
          * */
-        bool isLstNonEmptyEntry(int n) noexcept;
+        bool isLstNonEmptyEntry(i64 n) noexcept;
 
         /**
          * Read the nth directory entry, starting from zero.
@@ -181,6 +188,7 @@ namespace fs {
 
         optional<shared_ptr<File>> getFile(u64 ino) noexcept;
 
+        // name should be utf8 encoded
         optional<shared_ptr<File>> getFile(const char *name) noexcept;
 
         optional<shared_ptr<Directory>> getDir(u64 ino) noexcept;
@@ -189,7 +197,10 @@ namespace fs {
 
         void addFileToCache(shared_ptr<File> file) noexcept;
 
-        void rmFileFromCache(const char *name) noexcept;
+        /**
+         * Remove the file object from cache by name.
+         * */
+        void rmFileFromCacheByName(const char *name) noexcept;
 
         /**
          * Get file from `cached_lookup_files_`, and store it in `cached_open_files`.
