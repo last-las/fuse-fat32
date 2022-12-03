@@ -212,7 +212,7 @@ namespace fat32 {
         u8 name3[4];
     }__attribute__((packed));
 
-    util::string_utf16 readLongEntryName(LongDirEntry &long_dir_entry);
+    util::string_utf16 readLongEntryName(const LongDirEntry &long_dir_entry);
 
     inline bool isLongDirEntry(LongDirEntry &dir_entry) {
         return (dir_entry.attr & KAttrLongNameMask) == KAttrLongName;

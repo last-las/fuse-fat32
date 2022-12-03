@@ -274,6 +274,7 @@ static void fat32_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info 
     fuse_reply_open(req, fi);
 }
 
+// todo: make it right
 static void fat32_do_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
                              off_t offset, struct fuse_file_info *fi, bool plus) {
     auto file = getExistFile(ino);
@@ -285,15 +286,16 @@ static void fat32_do_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
     byte *buf = new byte[size];
     byte *p = buf;
     u32 rem = size;
+    u64 offset_ = offset;
     while (true) {
-        auto ret = dir->lookupFileByIndex(offset);
+        auto ret = dir->lookupFileByIndex(offset_);
+        offset = offset_;
         if (!ret.has_value()) {
             break;
         }
         auto sub_file = ret.value();
         auto state = readFileStat(sub_file);
 
-        offset += 1;
         u64 entsize;
         if (plus) { // might be wrong..
             struct fuse_entry_param e{};

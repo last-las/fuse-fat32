@@ -6,6 +6,7 @@
 #include "fs.h"
 #include "fat32.h"
 
+// todo: long directory is not checked(eg, chksum) for simplicity..
 // todo: change the AccDate and WrtTime/WrtData when read and write!
 // todo: for directory, sync should not write the file size(or test whether the driver still work after writing it).
 namespace fs {
@@ -289,12 +290,62 @@ namespace fs {
         fat32::LongDirEntry lst_dir_entry = readDirEntry(range.start + range.count - 1).value();
         fat32::ShortDirEntry s_dir_entry = fat32::castLongDirEntryToShort(lst_dir_entry);
 
-        auto file = std::make_shared<File>(this->parent_clus_, range.start, this->fs_, name, &s_dir_entry);
+        auto file = std::make_shared<File>(this->fst_clus_, range.start, this->fs_, name, &s_dir_entry);
         this->fs_.addFileToCache(file);
         return file;
     }
 
-    optional<shared_ptr<File>> Directory::lookupFileByIndex(u32 index) noexcept {}
+    optional<shared_ptr<File>> Directory::lookupFileByIndex(u64 &entry_off) noexcept {
+        std::optional<fat32::LongDirEntry> result;
+        fat32::LongDirEntry l_dir_entry{};
+        fat32::ShortDirEntry s_dir_entry{};
+        u32 entry_start = 0, entry_cnt = 0;
+
+        // skip possible empty entry
+        while ((result = readDirEntry(entry_off)).has_value() && fat32::isEmptyDirEntry(result.value())) {
+            entry_off++;
+        }
+
+        // reach the end of directory, return null
+        if (!result.has_value()) {
+            return std::nullopt;
+        }
+        entry_start = entry_off;
+
+        // record all the entries until a short entry is found
+        std::list<fat32::LongDirEntry> l_dir_entries;
+        while (true) {
+            result = readDirEntry(entry_off);
+            assert(result.has_value());
+            l_dir_entry = result.value();
+            assert(!fat32::isEmptyDirEntry(l_dir_entry));
+            entry_cnt++;
+            entry_off++;
+            if (!fat32::isLongDirEntry(l_dir_entry)) { // a short dir entry is found, break here
+                s_dir_entry = fat32::castLongDirEntryToShort(l_dir_entry);
+                break;
+            }
+            l_dir_entries.push_front(l_dir_entry);
+        }
+
+        util::string_utf8 name = fat32::readShortEntryName(s_dir_entry);
+        if (!l_dir_entries.empty()) {
+            // todo: check if dir entry is valid.
+            util::string_utf16 utf16_name;
+            for (const auto &dir_entry: l_dir_entries) {
+                utf16_name += fat32::readLongEntryName(dir_entry);
+            }
+            name = util::utf16ToUtf8(utf16_name).value();
+        }
+
+        auto cache_result = fs_.getFile(name.c_str());
+        if (cache_result.has_value()) {
+            return cache_result;
+        }
+        auto file = std::make_shared<File>(this->fst_clus_, entry_start, this->fs_, std::move(name), &s_dir_entry);
+        this->fs_.addFileToCache(file);
+        return file;
+    }
 
     bool Directory::isEmpty() noexcept {}
 
@@ -454,11 +505,11 @@ namespace fs {
     // `getFile` and `getDir` will find the target on the opened file map
     std::optional<shared_ptr<File>> FAT32fs::getFile(u64 ino) noexcept {}
 
-    optional<shared_ptr<File>> getFile(const char *name) noexcept {}
+    optional<shared_ptr<File>> FAT32fs::getFile(const char *name) noexcept {}
 
     std::optional<shared_ptr<Directory>> FAT32fs::getDir(u64 ino) noexcept {}
 
-    optional<shared_ptr<Directory>> getDir(const char *name) noexcept {}
+    optional<shared_ptr<Directory>> FAT32fs::getDir(const char *name) noexcept {}
 
     void FAT32fs::addFileToCache(shared_ptr<File> file) noexcept {}
 

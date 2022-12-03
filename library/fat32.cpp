@@ -154,7 +154,7 @@ namespace fat32 {
         return unix_ts;
     }
 
-    util::string_utf16 readLongEntryName(LongDirEntry &long_dir_entry) {
+    util::string_utf16 readLongEntryName(const LongDirEntry &long_dir_entry) {
         util::string_utf16 utf16_name;
         const u8 *name_ptr = &long_dir_entry.name1[0];
         for (u32 i = 0; i < 26; i += 2) {

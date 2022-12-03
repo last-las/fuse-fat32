@@ -69,17 +69,6 @@ namespace fs {
         u32 parent_clus_;
         FAT32fs &fs_;
 
-    private:
-        /**
-         * Return the reference of the cluster chain, using a lazy strategy.
-         * */
-        std::vector<u32> &readClusChain() noexcept;
-
-        /**
-         * Iterate over each directory entry of the cluster chain, return false when chain_index exceeds.
-         * */
-        bool iterClusChainEntry(std::vector<u32> &clus_chain, u32 &chain_index, u32 &sec_index, u32 &sec_off) noexcept;
-
         fat32::FatTimeStamp2 crt_time_;
         fat32::FatDate acc_date_;
         fat32::FatTimeStamp wrt_time_;
@@ -99,6 +88,17 @@ namespace fs {
          * This field should never be used, use readClusChain() instead.
          * */
         std::optional<std::vector<u32>> clus_chain_;
+
+    private:
+        /**
+         * Return the reference of the cluster chain, using a lazy strategy.
+         * */
+        std::vector<u32> &readClusChain() noexcept;
+
+        /**
+         * Iterate over each directory entry of the cluster chain, return false when chain_index exceeds.
+         * */
+        bool iterClusChainEntry(std::vector<u32> &clus_chain, u32 &chain_index, u32 &sec_index, u32 &sec_off) noexcept;
     };
 
     /**
@@ -134,12 +134,13 @@ namespace fs {
         optional<shared_ptr<File>> lookupFile(const char *name) noexcept;
 
         /**
-         * Return the file ptr, or none if `index` is out of bound.
+         * todo: alter comment
+         * Return the file ptr, or none if `entry_off` is out of bound.
          * Usually this function is used to traverse the files in this directory.
          *
-         * @param index the order of files in current directory
+         * @param entry_off the order of files in current directory
          * */
-        optional<shared_ptr<File>> lookupFileByIndex(u32 index) noexcept;
+        optional<shared_ptr<File>> lookupFileByIndex(u64 &entry_off) noexcept;
 
         bool isEmpty() noexcept;
 
