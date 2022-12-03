@@ -228,6 +228,10 @@ namespace fat32 {
         return dir_entry.ord == 0x00 || dir_entry.ord == 0xE5;
     }
 
+    inline bool isLstEmptyDirEntry(LongDirEntry &dir_entry) {
+        return dir_entry.ord == 0x00;
+    }
+
     inline void setDirEntryEmpty(LongDirEntry &dir_entry) {
         dir_entry.ord = 0xE5;
     }

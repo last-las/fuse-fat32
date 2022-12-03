@@ -347,13 +347,14 @@ namespace fs {
         return file;
     }
 
-    bool Directory::isEmpty() noexcept {}
+    bool Directory::isEmpty() noexcept {
+        return isLstNonEmptyEntry(-1);
+    }
 
     bool Directory::isDir() noexcept {
         return true;
     }
 
-    // todo: check whether the same name exists!
     optional<shared_ptr<File>> Directory::crtFileInner(const char *name, bool is_dir) noexcept {
         // convert the name to utf16 and calc required entry num
         util::string_utf8 utf8_name(name);
@@ -456,6 +457,22 @@ namespace fs {
         }
     }
 
+    // todo: optimize lookupFileInner and crtFileInner
+    bool Directory::isLstNonEmptyEntry(int n) noexcept {
+        n = n < 0 ? 0 : n + 1;
+        optional<fat32::LongDirEntry> result;
+        while ((result = readDirEntry(n)).has_value()) {
+            auto dir_entry = result.value();
+            if (!fat32::isEmptyDirEntry(dir_entry)) {
+                return false;
+            }
+            if (fat32::isLstEmptyDirEntry(dir_entry)) {
+                return true;
+            }
+        }
+
+        return true;
+    }
 
     optional<fat32::LongDirEntry> Directory::readDirEntry(u32 n) noexcept {
         fat32::LongDirEntry l_dir_entry{};

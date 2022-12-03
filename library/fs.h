@@ -152,6 +152,12 @@ namespace fs {
         optional<DirEntryRange> lookupFileInner(const char *name) noexcept;
 
         /**
+         * Check whether the nth directory entry is the last non-empty entry by traversing the whole directory.
+         * If n is less than zero, it returns true if the directory is empty.
+         * */
+        bool isLstNonEmptyEntry(int n) noexcept;
+
+        /**
          * Read the nth directory entry, starting from zero.
          * */
         optional<fat32::LongDirEntry> readDirEntry(u32 n) noexcept;
