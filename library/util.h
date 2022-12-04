@@ -57,6 +57,22 @@ namespace util {
             }
         }
 
+        std::optional<value_t> remove(key_t key) noexcept {
+            auto it = caches_map_.find(key);
+            if (it != caches_map_.end()) {
+                auto value = it->second->second;
+                caches_map_.erase(it);
+                key_value_list_.erase(it->second);
+                return {value};
+            } else {
+                return std::nullopt;
+            }
+        }
+
+        u64 size() noexcept {
+            return key_value_list_.size();
+        }
+
         typename std::list<key_value_pair_t>::const_iterator begin() {
             return key_value_list_.begin();
         }

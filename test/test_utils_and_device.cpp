@@ -107,6 +107,26 @@ TEST(LRUCacheMapTest, Iterate) {
     }
 }
 
+TEST(LRUCacheMapTest, Remove) {
+    util::LRUCacheMap<u32, u32> lru_map(20);
+    u32 key = 1, value = 100;
+    for (int i = 0; i < 4; ++i) {
+        lru_map.put(key, value);
+        key += 1;
+        value += 100;
+    }
+    ASSERT_EQ(lru_map.remove(4).value(), 400);
+    ASSERT_EQ(lru_map.size(), 3);
+    lru_map.put(4, 400);
+
+    for (const auto &item: lru_map) {
+        key -= 1;
+        value -= 100;
+        ASSERT_EQ(item.first, key);
+        ASSERT_EQ(item.second, value);
+    }
+}
+
 void testRegularRWOnDevice(device::Device &device) {
     byte val = 0x66;
     for (u32 i = 0; i < sector_num; ++i) {
