@@ -88,7 +88,23 @@ TEST(LRUCacheMapTest, SharedPtr) {
     ASSERT_EQ(testObj.use_count(), 1);
     lru_map.put(1, testObj);
     ASSERT_EQ(testObj.use_count(), 2);
-    // TODO: std::moved
+}
+
+TEST(LRUCacheMapTest, Iterate) {
+    util::LRUCacheMap<u32, u32> lru_map(20);
+    u32 key = 1, value = 100;
+    for (int i = 0; i < 4; ++i) {
+        lru_map.put(key, value);
+        key += 1;
+        value += 100;
+    }
+
+    for (const auto &item: lru_map) {
+        key -= 1;
+        value -= 100;
+        ASSERT_EQ(item.first, key);
+        ASSERT_EQ(item.second, value);
+    }
 }
 
 void testRegularRWOnDevice(device::Device &device) {

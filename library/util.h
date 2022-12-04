@@ -57,6 +57,14 @@ namespace util {
             }
         }
 
+        typename std::list<key_value_pair_t>::const_iterator begin() {
+            return key_value_list_.begin();
+        }
+
+        typename std::list<key_value_pair_t>::const_iterator end() {
+            return key_value_list_.end();
+        }
+
     private:
         u32 max_size_;
         std::unordered_map<key_t, list_iterator_t> caches_map_;
