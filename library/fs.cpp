@@ -307,7 +307,7 @@ namespace fs {
     }
 
     optional<shared_ptr<File>> Directory::lookupFile(const char *name) noexcept {
-        auto cache_result = fs_.getFile(name);
+        auto cache_result = fs_.getFileByName(name);
         if (cache_result.has_value()) {
             return cache_result;
         }
@@ -381,7 +381,7 @@ namespace fs {
             name = util::gbkToUtf8(short_name).value();
         }
 
-        auto cache_result = fs_.getFile(name.c_str());
+        auto cache_result = fs_.getFileByName(name.c_str());
         if (cache_result.has_value()) {
             return cache_result;
         }
@@ -593,26 +593,41 @@ namespace fs {
         return Directory::mkRootDir(root_fst_clus, *this);
     }
 
-    // `getFile` and `getDir` will find the target on the opened file map
-    std::optional<shared_ptr<File>> FAT32fs::getFile(u64 ino) noexcept {
+    std::optional<shared_ptr<File>> FAT32fs::getFileByIno(u64 ino) noexcept {
         assert(false);
     }
 
-    optional<shared_ptr<File>> FAT32fs::getFile(const char *name) noexcept {
+    optional<shared_ptr<File>> FAT32fs::getFileByName(const char *name) noexcept {
+        for (const auto &ino_file : cached_lookup_files_) {
+            auto file = ino_file.second;
+            if (strcmp(file->name(), name) == 0) {
+                return {file};
+            }
+        }
 
+        return std::nullopt;
     }
 
-    std::optional<shared_ptr<Directory>> FAT32fs::getDir(u64 ino) noexcept {
+    std::optional<shared_ptr<Directory>> FAT32fs::getDirByIno(u64 ino) noexcept {
         assert(false);
     }
 
-    optional<shared_ptr<Directory>> FAT32fs::getDir(const char *name) noexcept {
+    optional<shared_ptr<Directory>> FAT32fs::getDirByName(const char *name) noexcept {
         assert(false);
     }
 
-    void FAT32fs::addFileToCache(shared_ptr<File> file) noexcept {}
+    void FAT32fs::addFileToCache(shared_ptr<File> file) noexcept {
+        u64 ino = file->ino();
+        this->cached_lookup_files_.put(ino, std::move(file));
+    }
 
-    void FAT32fs::rmFileFromCacheByName(const char *name) noexcept {}
+    void FAT32fs::rmFileFromCacheByName(const char *name) noexcept {
+        auto result = getFileByName(name);
+        if (result.has_value()) {
+            auto file = result.value();
+            cached_lookup_files_.remove(file->ino());
+        }
+    }
 
     optional<shared_ptr<File>> FAT32fs::openFile(u64 ino) noexcept {
         assert(false);

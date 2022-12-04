@@ -19,14 +19,14 @@ fs::FAT32fs &getFilesystem() {
 
 // If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::Directory> getExistDir(fuse_ino_t ino) {
-    auto result = getFilesystem().getDir(ino);
+    auto result = getFilesystem().getDirByIno(ino);
     assert(result.has_value());
     return result.value();
 }
 
 // If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::File> getExistFile(fuse_ino_t ino) {
-    auto result = getFilesystem().getFile(ino);
+    auto result = getFilesystem().getFileByIno(ino);
     assert(result.has_value());
     return result.value();
 }

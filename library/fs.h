@@ -193,14 +193,14 @@ namespace fs {
 
         shared_ptr<Directory> getRootDir() noexcept;
 
-        optional<shared_ptr<File>> getFile(u64 ino) noexcept;
+        optional<shared_ptr<File>> getFileByIno(u64 ino) noexcept;
 
         // name should be utf8 encoded
-        optional<shared_ptr<File>> getFile(const char *name) noexcept;
+        optional<shared_ptr<File>> getFileByName(const char *name) noexcept;
 
-        optional<shared_ptr<Directory>> getDir(u64 ino) noexcept;
+        optional<shared_ptr<Directory>> getDirByIno(u64 ino) noexcept;
 
-        optional<shared_ptr<Directory>> getDir(const char *name) noexcept;
+        optional<shared_ptr<Directory>> getDirByName(const char *name) noexcept;
 
         void addFileToCache(shared_ptr<File> file) noexcept;
 
