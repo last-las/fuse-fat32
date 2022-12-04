@@ -584,7 +584,9 @@ namespace fs {
         return {bpb, fat, device};
     }
 
-    std::optional<FAT32fs> FAT32fs::mkfs(device::Device *device) noexcept {}
+    std::optional<FAT32fs> FAT32fs::mkfs(device::Device *device) noexcept {
+        return std::nullopt;
+    }
 
     shared_ptr<Directory> FAT32fs::getRootDir() noexcept {
         u32 root_fst_clus = this->bpb_.BPB_root_clus;
@@ -592,21 +594,33 @@ namespace fs {
     }
 
     // `getFile` and `getDir` will find the target on the opened file map
-    std::optional<shared_ptr<File>> FAT32fs::getFile(u64 ino) noexcept {}
+    std::optional<shared_ptr<File>> FAT32fs::getFile(u64 ino) noexcept {
+        assert(false);
+    }
 
-    optional<shared_ptr<File>> FAT32fs::getFile(const char *name) noexcept {}
+    optional<shared_ptr<File>> FAT32fs::getFile(const char *name) noexcept {
 
-    std::optional<shared_ptr<Directory>> FAT32fs::getDir(u64 ino) noexcept {}
+    }
 
-    optional<shared_ptr<Directory>> FAT32fs::getDir(const char *name) noexcept {}
+    std::optional<shared_ptr<Directory>> FAT32fs::getDir(u64 ino) noexcept {
+        assert(false);
+    }
+
+    optional<shared_ptr<Directory>> FAT32fs::getDir(const char *name) noexcept {
+        assert(false);
+    }
 
     void FAT32fs::addFileToCache(shared_ptr<File> file) noexcept {}
 
     void FAT32fs::rmFileFromCacheByName(const char *name) noexcept {}
 
-    optional<shared_ptr<File>> FAT32fs::openFile(u64 ino) noexcept {}
+    optional<shared_ptr<File>> FAT32fs::openFile(u64 ino) noexcept {
+        assert(false);
+    }
 
-    void FAT32fs::closeFile(u64 ino) noexcept {}
+    void FAT32fs::closeFile(u64 ino) noexcept {
+        assert(false);
+    }
 
     fat32::BPB &FAT32fs::bpb() noexcept {
         return this->bpb_;
