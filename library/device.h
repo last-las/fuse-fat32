@@ -65,7 +65,7 @@ namespace device {
 
     class CacheManager : public Device {
     public:
-        explicit CacheManager(std::unique_ptr<Device> device, u32 cache_sz = CACHED_SECTOR_NUM) noexcept;
+        explicit CacheManager(std::shared_ptr<Device> device, u32 cache_sz = CACHED_SECTOR_NUM) noexcept;
 
         std::optional<std::shared_ptr<Sector>> readSector(u32 sec_num) noexcept override;
 
@@ -74,7 +74,7 @@ namespace device {
         bool contains(u32 sec_num) noexcept;
 
     private:
-        std::unique_ptr<Device> inner_device_;
+        std::shared_ptr<Device> inner_device_;
         util::LRUCacheMap<u32, std::shared_ptr<Sector>> sector_cache_;
     };
 

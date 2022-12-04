@@ -226,7 +226,7 @@ TEST(SectorTest, SectorDestructor) {
  * CacheManagerTest
  * */
 TEST(CacheManagerTest, FetchSameSecTwice) {
-    auto real_device = std::make_unique<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
+    auto real_device = std::make_shared<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
     device::CacheManager cacheManager(std::move(real_device));
     auto sec1 = cacheManager.readSector(0);
     auto sec2 = cacheManager.readSector(0);
@@ -234,7 +234,7 @@ TEST(CacheManagerTest, FetchSameSecTwice) {
 }
 
 TEST(CacheManagerTest, LRU) {
-    auto real_device = std::make_unique<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
+    auto real_device = std::make_shared<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
     device::CacheManager cacheManager(std::move(real_device), 3);
     cacheManager.readSector(0);
     cacheManager.readSector(1);
@@ -250,7 +250,7 @@ TEST(CacheManagerTest, LRU) {
 }
 
 TEST(CacheManagerTest, RegularRW) {
-    auto real_device = std::make_unique<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
+    auto real_device = std::make_shared<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
     device::CacheManager cacheManager(std::move(real_device));
     testRegularRWOnDevice(cacheManager);
 }
@@ -260,7 +260,7 @@ TEST(CacheManagerTest, BlkDevRW) {
         GTEST_SKIP();
     }
 
-    auto real_device = std::make_unique<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
+    auto real_device = std::make_shared<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
     device::CacheManager cacheManager(std::move(real_device));
     testBlkDevRWOnDevice(cacheManager);
 }

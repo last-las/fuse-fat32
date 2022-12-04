@@ -105,7 +105,7 @@ namespace device {
     /**
      * CacheManger
      * */
-    CacheManager::CacheManager(std::unique_ptr<Device> device, u32 cache_sz) noexcept
+    CacheManager::CacheManager(std::shared_ptr<Device> device, u32 cache_sz) noexcept
             : inner_device_{std::move(device)}, sector_cache_(cache_sz) {}
 
     std::optional<std::shared_ptr<Sector>> CacheManager::readSector(u32 sec_num) noexcept {
