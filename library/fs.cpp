@@ -103,7 +103,7 @@ namespace fs {
             short_dir_entry->lst_acc_date = acc_date_;
             short_dir_entry->wrt_ts = wrt_time_;
             short_dir_entry->file_sz = file_sz_;  // todo: for directory, sync should not write the file size(or test whether the driver still work after writing it).
-            fat32::setEntryClusNo(*short_dir_entry, fst_clus_);
+            fat32::setFstClusNo(*short_dir_entry, fst_clus_);
         }
 
         // sync data info
@@ -256,8 +256,11 @@ namespace fs {
                          const fat32::ShortDirEntry *meta_entry) noexcept
             : File(parent_clus, fst_entry_num, fs, std::move(name), meta_entry) {}
 
-    shared_ptr<Directory> Directory::mkRootDir(u32 fst_clus, FAT32fs &fs) noexcept {}
-
+    shared_ptr<Directory> Directory::mkRootDir(u32 fst_clus, FAT32fs &fs) noexcept {
+        fat32::ShortDirEntry s_dir_entry{};
+        fat32::setFstClusNo(s_dir_entry, fst_clus);
+        return std::make_shared<Directory>(0, 0, fs, "/", &s_dir_entry);
+    }
 
     optional<shared_ptr<File>> Directory::crtFile(const char *name) noexcept {
         return crtFileInner(name, false);
@@ -584,10 +587,8 @@ namespace fs {
     std::optional<FAT32fs> FAT32fs::mkfs(device::Device *device) noexcept {}
 
     shared_ptr<Directory> FAT32fs::getRootDir() noexcept {
-        u32 root_clus = this->bpb_.BPB_root_clus;
-        u32 sec_no_of_root_clus = fat32::getFirstSectorOfCluster(this->bpb_, root_clus);
-        // todo: read chains of clus.
-        auto root_sec = this->device_.readSector(sec_no_of_root_clus).value();
+        u32 root_fst_clus = this->bpb_.BPB_root_clus;
+        return Directory::mkRootDir(root_fst_clus, *this);
     }
 
     // `getFile` and `getDir` will find the target on the opened file map

@@ -196,7 +196,7 @@ namespace fat32 {
     // todo: fix this
     bool containIllegalShortDirEntryChr(u8 val);
 
-    inline void setEntryClusNo(ShortDirEntry &short_dir_entry, u32 clus) {
+    inline void setFstClusNo(ShortDirEntry &short_dir_entry, u32 clus) {
         short_dir_entry.fst_clus_high = (u16) (clus >> 16);
         short_dir_entry.fst_clus_low = (u16) (clus & 0xffff);
     }

@@ -231,7 +231,7 @@ namespace fat32 {
         shortDirEntry.lst_acc_date = dos_ts.date;
         shortDirEntry.wrt_ts = dos_ts;
         shortDirEntry.file_sz = 0;
-        setEntryClusNo(shortDirEntry, 0); // empty space
+        setFstClusNo(shortDirEntry, 0); // empty space
 
         return shortDirEntry;
     }

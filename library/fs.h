@@ -129,7 +129,7 @@ namespace fs {
         Directory(u32 parent_clus, u32 fst_entry_num, FAT32fs &fs, std::string name,
                   const fat32::ShortDirEntry *meta_entry) noexcept;
 
-        shared_ptr<Directory> mkRootDir(u32 fst_clus, FAT32fs &fs) noexcept;
+        static shared_ptr<Directory> mkRootDir(u32 fst_clus, FAT32fs &fs) noexcept;
 
         /**
          * Create an empty file and add to lru cache.

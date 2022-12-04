@@ -113,7 +113,7 @@ TEST(FAT32Test, IllegalChr) {
 TEST(FAT32Test, EntryClusNo) {
     fat32::ShortDirEntry short_dir_entry{};
     u32 clus_no = 0xdeadbeef;
-    setEntryClusNo(short_dir_entry, clus_no);
+    setFstClusNo(short_dir_entry, clus_no);
     ASSERT_EQ(short_dir_entry.fst_clus_high, 0xdead);
     ASSERT_EQ(short_dir_entry.fst_clus_low, 0xbeef);
     ASSERT_EQ(readEntryClusNo(short_dir_entry), clus_no);
