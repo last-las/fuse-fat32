@@ -4,14 +4,14 @@
 #include "common.h"
 #include "fs.h"
 
-std::optional<fs::FAT32fs> filesystem;
+std::unique_ptr<fs::FAT32fs> filesystem;
 
 class TestFsEnv : public testing::Environment, Fat32Filesystem {
 public:
     TestFsEnv() {
-/*        device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
-        device::CacheManager cache_device(device);
-        filesystem = fs::FAT32fs::from(cache_device);*/
+        auto linux_file_driver = std::make_shared<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
+        auto cache_mgr = std::make_shared<device::CacheManager>(std::move(linux_file_driver));
+        filesystem = fs::FAT32fs::from(cache_mgr);
     }
 };
 

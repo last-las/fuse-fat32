@@ -187,7 +187,7 @@ namespace fs {
         // TODO: make the constructor private.
         FAT32fs(fat32::BPB bpb, fat32::FAT fat, std::shared_ptr<device::Device> device) noexcept;
 
-        static FAT32fs from(std::shared_ptr<device::Device> device) noexcept;
+        static std::unique_ptr<FAT32fs> from(std::shared_ptr<device::Device> device) noexcept;
 
         static std::optional<FAT32fs> mkfs(std::shared_ptr<device::Device> device) noexcept;
 

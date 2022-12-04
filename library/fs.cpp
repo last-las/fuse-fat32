@@ -571,7 +571,7 @@ namespace fs {
     FAT32fs::FAT32fs(fat32::BPB bpb, fat32::FAT fat, std::shared_ptr<device::Device> device) noexcept
             : bpb_(bpb), fat_(fat), device_{std::move(device)} {}
 
-    FAT32fs FAT32fs::from(std::shared_ptr<device::Device> device) noexcept {
+    std::unique_ptr<FAT32fs> FAT32fs::from(std::shared_ptr<device::Device> device) noexcept {
         auto fst_sec = device->readSector(0).value();
         auto bpb = *((fat32::BPB *) fst_sec->read_ptr(0));
         if (!fat32::isValidFat32BPB(bpb)) { // todo: use fuse log instead.
@@ -581,7 +581,7 @@ namespace fs {
 
         auto fat = fat32::FAT(bpb, 0xffffffff, device);
 
-        return {bpb, fat, std::move(device)};
+        return std::make_unique<FAT32fs>(bpb, fat, std::move(device));
     }
 
     std::optional<FAT32fs> FAT32fs::mkfs(std::shared_ptr<device::Device> device) noexcept {
