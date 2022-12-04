@@ -406,8 +406,8 @@ int main(int argc, char *argv[]) {
     // TODO: check the file name length!
     // TODO: multiprocess: make sure if the file has been deleted other operation on this object should always fail.
 
-    device::LinuxFileDriver dev = device::LinuxFileDriver("/dev/sdb1", SECTOR_SIZE);
-    device::CacheManager cache_mgr = device::CacheManager(dev);
+    auto real_device = std::make_unique<device::LinuxFileDriver>("/dev/sdb1", SECTOR_SIZE);
+    device::CacheManager cache_mgr = device::CacheManager(std::move(real_device));
     auto fs = fs::FAT32fs::from(cache_mgr);
     printf("hello world! --fuse\n");
 }

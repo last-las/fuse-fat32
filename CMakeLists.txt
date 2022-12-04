@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.16)
 project(stupid-fat32)
 set(CMAKE_CXX_STANDARD 17)
 include(CheckSymbolExists)
@@ -60,6 +60,6 @@ add_executable(test_fat32 test/test_fat32.cpp library/device.cpp library/fs.cpp 
 target_link_libraries(test_fat32 gtest gtest_main)
 target_include_directories(test_fat32 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/test/)
 
-add_executable(test_fs test/test_fs.cpp)
+add_executable(test_fs test/test_fs.cpp library/fs.cpp library/device.cpp library/fat32.cpp library/util.cpp)
 target_link_libraries(test_fs gtest gtest_main)
 target_include_directories(test_fs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/test/)
