@@ -11,6 +11,8 @@ namespace fs {
     using std::optional;
     using fat32::FatTimeStamp, fat32::FatTimeStamp2;
 
+    const u64 KRootDirIno = 0;
+
     class FAT32fs;
 
     class File {
@@ -124,6 +126,11 @@ namespace fs {
 
     class Directory : public File {
     public:
+        Directory(u32 parent_clus, u32 fst_entry_num, FAT32fs &fs, std::string name,
+                  const fat32::ShortDirEntry *meta_entry) noexcept;
+
+        shared_ptr<Directory> mkRootDir(u32 fst_clus, FAT32fs &fs) noexcept;
+
         /**
          * Create an empty file and add to lru cache.
          * This function won't check whether the name exists, call `lookupFile` before if necessary.

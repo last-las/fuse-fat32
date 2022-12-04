@@ -80,7 +80,7 @@ namespace fs {
         if (is_deleted_) {
             return;
         }
-        if (sync_meta) {
+        if (sync_meta && ino() != KRootDirIno) { // never try to sync root directory metadata
             auto p_clus_chain = fs_.fat().readClusChains(parent_clus_);
             u32 clus_i = 0;
             u32 sec_i = (fst_entry_num_ * sizeof(fat32::LongDirEntry)) / fs_.bpb().BPB_bytes_per_sec;
@@ -140,7 +140,7 @@ namespace fs {
     }
 
     void File::markDeleted() noexcept {
-        if (is_deleted_) {
+        if (is_deleted_ || ino() == KRootDirIno) {
             return;
         }
 
@@ -252,6 +252,13 @@ namespace fs {
     /**
      * Directory
      * */
+    Directory::Directory(u32 parent_clus, u32 fst_entry_num, FAT32fs &fs, std::string name,
+                         const fat32::ShortDirEntry *meta_entry) noexcept
+            : File(parent_clus, fst_entry_num, fs, std::move(name), meta_entry) {}
+
+    shared_ptr<Directory> Directory::mkRootDir(u32 fst_clus, FAT32fs &fs) noexcept {}
+
+
     optional<shared_ptr<File>> Directory::crtFile(const char *name) noexcept {
         return crtFileInner(name, false);
     }
@@ -310,7 +317,12 @@ namespace fs {
         fat32::LongDirEntry lst_dir_entry = readDirEntry(range.start + range.count - 1).value();
         fat32::ShortDirEntry s_dir_entry = fat32::castLongDirEntryToShort(lst_dir_entry);
 
-        auto file = std::make_shared<File>(this->fst_clus_, range.start, this->fs_, name, &s_dir_entry);
+        shared_ptr<File> file;
+        if (fat32::isDirectory(s_dir_entry)) {
+            file = std::make_shared<Directory>(this->fst_clus_, range.start, this->fs_, name, &s_dir_entry);
+        } else {
+            file = std::make_shared<File>(this->fst_clus_, range.start, this->fs_, name, &s_dir_entry);
+        }
         this->fs_.addFileToCache(file);
         return file;
     }
@@ -370,7 +382,13 @@ namespace fs {
         if (cache_result.has_value()) {
             return cache_result;
         }
-        auto file = std::make_shared<File>(this->fst_clus_, entry_start, this->fs_, std::move(name), &s_dir_entry);
+
+        shared_ptr<File> file;
+        if (fat32::isDirectory(s_dir_entry)) {
+            file = std::make_shared<Directory>(this->fst_clus_, entry_start, this->fs_, std::move(name), &s_dir_entry);
+        } else {
+            file = std::make_shared<File>(this->fst_clus_, entry_start, this->fs_, std::move(name), &s_dir_entry);
+        }
         this->fs_.addFileToCache(file);
         return file;
     }
@@ -435,8 +453,15 @@ namespace fs {
         const fat32::ShortDirEntry s_dir_entry = fat32::mkShortDirEntry(basis_name, is_dir);
         writeDirEntry(free_entry_start + required_entry_num - 1, *(fat32::LongDirEntry *) (&s_dir_entry));
 
-        auto file = std::make_shared<File>(this->fst_clus_, free_entry_start,
-                                           this->fs_, std::move(utf8_name), &s_dir_entry);
+        shared_ptr<File> file;
+        if (is_dir) {
+            file = std::make_shared<Directory>(this->fst_clus_, free_entry_start,
+                                               this->fs_, std::move(utf8_name), &s_dir_entry);
+        } else {
+            file = std::make_shared<File>(this->fst_clus_, free_entry_start,
+                                          this->fs_, std::move(utf8_name), &s_dir_entry);
+        }
+
         this->fs_.addFileToCache(file);
         return file;
     }

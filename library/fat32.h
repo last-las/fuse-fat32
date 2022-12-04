@@ -205,6 +205,10 @@ namespace fat32 {
         return (short_dir_entry.fst_clus_high << 16) | short_dir_entry.fst_clus_low;
     }
 
+    inline bool isDirectory(ShortDirEntry &short_dir_entry) {
+        return short_dir_entry.attr & KAttrDirectory;
+    }
+
     struct LongDirEntry {
         u8 ord;
         u8 name1[10];
