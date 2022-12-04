@@ -185,11 +185,11 @@ namespace fs {
     class FAT32fs {
     public:
         // TODO: make the constructor private.
-        FAT32fs(fat32::BPB bpb, fat32::FAT fat, device::Device &device) noexcept;
+        FAT32fs(fat32::BPB bpb, fat32::FAT fat, std::shared_ptr<device::Device> device) noexcept;
 
-        static FAT32fs from(device::Device &device) noexcept;
+        static FAT32fs from(std::shared_ptr<device::Device> device) noexcept;
 
-        static std::optional<FAT32fs> mkfs(device::Device *device) noexcept;
+        static std::optional<FAT32fs> mkfs(std::shared_ptr<device::Device> device) noexcept;
 
         shared_ptr<Directory> getRootDir() noexcept;
 
@@ -223,12 +223,12 @@ namespace fs {
 
         fat32::FAT &fat() noexcept;
 
-        device::Device &device() noexcept;
+        std::shared_ptr<device::Device> device() noexcept;
 
     protected:
         fat32::BPB bpb_;
         fat32::FAT fat_;
-        device::Device &device_;
+        std::shared_ptr<device::Device> device_;
     private:
         util::LRUCacheMap<u64, shared_ptr<File>> cached_lookup_files_{20};
         std::unordered_map<u64, shared_ptr<File>> cached_open_files_; // todo: remove the structure, and refactor `openFile()`

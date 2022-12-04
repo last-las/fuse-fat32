@@ -295,7 +295,8 @@ namespace fat32 {
     /**
      * FAT implement
      * */
-    FAT::FAT(BPB bpb, u32 free_count, device::Device &device) noexcept: bpb_{bpb}, device_{device} {
+    FAT::FAT(BPB bpb, u32 free_count, std::shared_ptr<device::Device> device) noexcept
+            : bpb_{bpb}, device_{std::move(device)} {
         start_sec_no_ = getFirstFATSector(bpb, 0);
         fat_sec_num_ = bpb.BPB_FATsz32;
         cnt_of_clus_ = getCountOfClusters(bpb);
@@ -446,12 +447,12 @@ namespace fat32 {
     }
 
     void FAT::writeFatEntry(u32 sec_no, u32 fat_ent_offset, u32 val) noexcept {
-        auto sector = this->device_.readSector(sec_no).value();
+        auto sector = this->device_->readSector(sec_no).value();
         writeFATClusEntryVal((u8 *) sector->write_ptr(0), fat_ent_offset, val);
     }
 
     u32 FAT::readFatEntry(u32 sec_no, u32 fat_ent_offset) noexcept {
-        auto sector = this->device_.readSector(sec_no).value();
+        auto sector = this->device_->readSector(sec_no).value();
         return readFATClusEntryVal((const u8 *) sector->read_ptr(0), fat_ent_offset);
     }
 }

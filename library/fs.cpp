@@ -89,7 +89,7 @@ namespace fs {
             // find the short directory entry of current file in parent
             do {
                 u32 sec_no = fat32::getFirstSectorOfCluster(fs_.bpb(), p_clus_chain[clus_i]) + sec_i;
-                sec = fs_.device().readSector(sec_no).value();
+                sec = fs_.device()->readSector(sec_no).value();
                 auto *long_dir_entry = (const fat32::LongDirEntry *) sec->read_ptr(sec_off);
                 if ((long_dir_entry->attr & fat32::KAttrLongNameMask) !=
                     fat32::KAttrLongName) { // find fst short dir entry
@@ -152,7 +152,7 @@ namespace fs {
         std::shared_ptr<device::Sector> sec;
         do {
             u32 sec_no = fat32::getFirstSectorOfCluster(fs_.bpb(), p_clus_chain[clus_i]) + sec_i;
-            sec = fs_.device().readSector(sec_no).value();
+            sec = fs_.device()->readSector(sec_no).value();
             auto *dir_entry = (fat32::LongDirEntry *) sec->write_ptr(sec_off);
             u8 attr = dir_entry->attr;
             fat32::setDirEntryEmpty(*dir_entry);
@@ -200,7 +200,7 @@ namespace fs {
     std::optional<std::shared_ptr<device::Sector>> File::readSector(u32 n) noexcept {
         auto result = sector_no(n);
         if (result.has_value()) {
-            return fs_.device().readSector(result.value());
+            return fs_.device()->readSector(result.value());
         } else {
             return std::nullopt;
         }
@@ -568,11 +568,11 @@ namespace fs {
     /**
      * Filesystem
      * */
-    FAT32fs::FAT32fs(fat32::BPB bpb, fat32::FAT fat, device::Device &device) noexcept
-            : bpb_(bpb), fat_(fat), device_{device} {}
+    FAT32fs::FAT32fs(fat32::BPB bpb, fat32::FAT fat, std::shared_ptr<device::Device> device) noexcept
+            : bpb_(bpb), fat_(fat), device_{std::move(device)} {}
 
-    FAT32fs FAT32fs::from(device::Device &device) noexcept {
-        auto fst_sec = device.readSector(0).value();
+    FAT32fs FAT32fs::from(std::shared_ptr<device::Device> device) noexcept {
+        auto fst_sec = device->readSector(0).value();
         auto bpb = *((fat32::BPB *) fst_sec->read_ptr(0));
         if (!fat32::isValidFat32BPB(bpb)) { // todo: use fuse log instead.
             printf("invalid BPB!\n");
@@ -581,10 +581,10 @@ namespace fs {
 
         auto fat = fat32::FAT(bpb, 0xffffffff, device);
 
-        return {bpb, fat, device};
+        return {bpb, fat, std::move(device)};
     }
 
-    std::optional<FAT32fs> FAT32fs::mkfs(device::Device *device) noexcept {
+    std::optional<FAT32fs> FAT32fs::mkfs(std::shared_ptr<device::Device> device) noexcept {
         return std::nullopt;
     }
 
@@ -645,7 +645,7 @@ namespace fs {
         return this->fat_;
     }
 
-    device::Device &FAT32fs::device() noexcept {
+    std::shared_ptr<device::Device> FAT32fs::device() noexcept {
         return this->device_;
     }
 }

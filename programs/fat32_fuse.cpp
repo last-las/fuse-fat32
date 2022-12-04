@@ -407,7 +407,7 @@ int main(int argc, char *argv[]) {
     // TODO: multiprocess: make sure if the file has been deleted other operation on this object should always fail.
 
     auto real_device = std::make_shared<device::LinuxFileDriver>("/dev/sdb1", SECTOR_SIZE);
-    device::CacheManager cache_mgr = device::CacheManager(std::move(real_device));
-    auto fs = fs::FAT32fs::from(cache_mgr);
+    auto cache_mgr = std::make_shared<device::CacheManager>(std::move(real_device));
+    auto fs = fs::FAT32fs::from(std::move(cache_mgr));
     printf("hello world! --fuse\n");
 }

@@ -9,6 +9,8 @@
 #include "device.h"
 #include "common.h"
 
+std::shared_ptr<device::LinuxFileDriver> device_;
+fat32::BPB bpb;
 static std::vector<u8> fat_snapshot;
 static u32 start_sec_no_;
 static u32 fat_sec_no_;
@@ -58,8 +60,8 @@ const u8 lst_entry_data[32] = {
 class TestFat32Env : public testing::Environment, Fat32Filesystem {
 public:
     TestFat32Env() {
-        device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
-        fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
+        device_ = std::make_shared<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
+        bpb = *(fat32::BPB *) device_->readSector(0).value()->read_ptr(0);
         start_sec_no_ = fat32::getFirstFATSector(bpb, 0);
         fat_sec_no_ = bpb.BPB_FATsz32;
         fat_num_ = bpb.BPB_num_fats;
@@ -68,7 +70,7 @@ public:
         fat_snapshot = std::vector<u8>(fat_sec_no_ * fat_num_ * SECTOR_SIZE);
         u8 *snapshot_ptr = &fat_snapshot[0];
         for (u32 sec_no = start_sec_no_; sec_no < start_sec_no_ + fat_sec_no_ * fat_num_; sec_no++) {
-            auto sector = device.readSector(sec_no).value();
+            auto sector = device_->readSector(sec_no).value();
             memcpy(snapshot_ptr, sector->read_ptr(0), SECTOR_SIZE);
             snapshot_ptr += SECTOR_SIZE;
         }
@@ -198,9 +200,7 @@ TEST(FAT32Test, genBasisName) {
 }
 
 TEST(FAT32Test, AvailClusCnt) {
-    device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
-    fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
-    fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device);
+    fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device_);
     struct statfs fs_stat{};
     ASSERT_EQ(statfs(mnt_point, &fs_stat), 0);
 
@@ -216,9 +216,7 @@ TEST(FAT32Test, AvailClusCnt) {
 }
 
 TEST(FAT32Test, AllocFree) {
-    device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
-    fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
-    fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device);
+    fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device_);
     std::vector<u32> clus_chain;
     u32 fst_clus;
     u64 avail_clus_cnt = fat.availClusCnt();
@@ -256,9 +254,7 @@ TEST(FAT32Test, AllocFree) {
 
 TEST(FAT32Test, SetFreeCount) {
     u32 free_clus_no = 5;
-    device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
-    fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
-    fat32::FAT fat = fat32::FAT(bpb, free_clus_no, device);
+    fat32::FAT fat = fat32::FAT(bpb, free_clus_no, device_);
 
     auto clus_chain = fat.allocClus(5).value();
     ASSERT_EQ(clus_chain[0], 5);
@@ -273,9 +269,7 @@ TEST(FAT32Test, SetFreeCount) {
 }
 
 TEST(FAT32Test, ReadClusChain) {
-    device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
-    fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
-    fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device);
+    fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device_);
     std::vector<u32> clus_chain, read_clus_chain;
 
     clus_chain = fat.allocClus(5).value();
@@ -288,9 +282,7 @@ TEST(FAT32Test, ReadClusChain) {
 }
 
 TEST(FAT32Test, Resize) {
-    device::LinuxFileDriver device(regular_file, SECTOR_SIZE);
-    fat32::BPB bpb = *(fat32::BPB *) device.readSector(0).value()->read_ptr(0);
-    fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device);
+    fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device_);
     std::vector<u32> expect_result;
 
     u32 fst_clus = fat.allocClus(5).value()[0];
