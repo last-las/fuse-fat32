@@ -435,7 +435,7 @@ namespace fs {
         const fat32::ShortDirEntry s_dir_entry = fat32::mkShortDirEntry(basis_name, is_dir);
         writeDirEntry(free_entry_start + required_entry_num - 1, *(fat32::LongDirEntry *) (&s_dir_entry));
 
-        auto file = std::make_shared<File>(this->parent_clus_, free_entry_start,
+        auto file = std::make_shared<File>(this->fst_clus_, free_entry_start,
                                            this->fs_, std::move(utf8_name), &s_dir_entry);
         this->fs_.addFileToCache(file);
         return file;
