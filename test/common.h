@@ -186,7 +186,7 @@ public:
         }
     }
 
-    ~Fat32Filesystem() {
+    virtual ~Fat32Filesystem() {
         if (umount(mnt_point) != 0) {
             printf("errno:%d %s\n", errno, strerror(errno));
         }
