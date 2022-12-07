@@ -102,6 +102,8 @@ namespace util {
     void rstrip(std::string &s, char a) noexcept;
 
     void strip(std::string &s, char a) noexcept;
+
+    std::string getFullPath(std::string file_path) noexcept;
 } // namespace util
 
 #endif //STUPID_FAT32_UTIL_H

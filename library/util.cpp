@@ -1,4 +1,5 @@
 #include <string>
+#include <unistd.h>
 #include <cstring>
 #include <algorithm>
 #include <iconv.h>
@@ -109,5 +110,19 @@ namespace util {
     void strip(std::string &s, char a) noexcept {
         lstrip(s, a);
         rstrip(s, a);
+    }
+
+
+    std::string getFullPath(std::string file_path) noexcept {
+        if (*file_path.begin() == '/') {
+            return file_path;
+        }
+
+        char *cur_dir_name = get_current_dir_name(); // return a null-terminated dir name
+        std::string full_path = std::string(cur_dir_name); // iterate over the array until a null-terminator is found
+        full_path += "/";
+        full_path += file_path;
+
+        return full_path;
     }
 }
