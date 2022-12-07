@@ -258,8 +258,27 @@ namespace fat32 {
     }
 
     BasisName genBasisNameFromShort(util::string_gbk short_name) {
-        // todo
-        assert(false);
+        u32 len = short_name.length();
+        assert(len <= 12);
+        BasisName basis_name = mkEmptyBasisName();
+        int i;
+        for (i = 0; i < 8 && i < len; i++) {
+            if (short_name[i] == '.') {
+                break;
+            }
+            basis_name.primary[i] = short_name[i];
+        }
+
+        if (i >= len) {
+            return basis_name;
+        } else {
+            i++; // short_name[i] always eq '.', skip this dot.
+            for (int j = 0; j < 3 && i < len; j++, i++) {
+                basis_name.extension[j] = short_name[i];
+            }
+        }
+
+        return basis_name;
     }
 
     BasisName genBasisNameFromLong(util::string_utf8 long_name) {

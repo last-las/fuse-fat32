@@ -17,6 +17,20 @@ static u32 fat_sec_no_;
 static u32 fat_num_;
 
 const u32 KNameCnt = 12;
+std::string short_names[KNameCnt] = {
+        "SHORT",
+        "SHORT.EXT",
+        "DAMNLONG",
+        "DAMNLONG.EXT",
+        "1.23",
+        "1.234",
+        "SPACE.TXT",
+        "DOT.TXT",
+        "SPACE_AN.TXT",
+        "A.TXT",
+        "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7.TXT",
+        "\xc4\xe3\xba\xc3\x31\xca\xc0\xbd.TXT",
+};
 std::string long_names[KNameCnt] = {
         "short",
         "short.ext",
@@ -191,7 +205,16 @@ TEST(FAT32Test, mkLongDirEntry) {
     ASSERT_EQ(strncmp((const char *) &lst_entry_data[0], (const char *) &lst_dir_entry, 32), 0);
 }
 
-TEST(FAT32Test, genBasisName) {
+TEST(FAT32Test, genBasisNameFromShort) {
+    fat32::BasisName gen_basis_name;
+    for (u32 i = 0; i < KNameCnt; ++i) {
+        gen_basis_name = fat32::genBasisNameFromShort(short_names[i]);
+        printf("%s\n", short_names[i].c_str());
+        assert_basis_name_eq(gen_basis_name, basis_names[i]);
+    }
+}
+
+TEST(FAT32Test, genBasisNameFromLong) {
     fat32::BasisName gen_basis_name;
     for (u32 i = 0; i < KNameCnt; ++i) {
         gen_basis_name = fat32::genBasisNameFromLong(long_names[i]);
