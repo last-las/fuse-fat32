@@ -13,8 +13,8 @@ namespace fs {
      * */
     File::File(u32 parent_clus, u32 fst_entry_num, fs::FAT32fs &fs, std::string name,
                const fat32::ShortDirEntry *meta_entry) noexcept
-            : parent_clus_{parent_clus}, fst_entry_num_{fst_entry_num}, fst_clus_{0}, fs_{fs},
-              name_{std::move(name)}, crt_time_{meta_entry->crt_ts2}, acc_date_{meta_entry->lst_acc_date},
+            : parent_clus_{parent_clus}, fst_entry_num_{fst_entry_num}, fst_clus_{fat32::readEntryClusNo(*meta_entry)},
+              fs_{fs}, name_{std::move(name)}, crt_time_{meta_entry->crt_ts2}, acc_date_{meta_entry->lst_acc_date},
               wrt_time_{meta_entry->wrt_ts}, file_sz_{meta_entry->file_sz} {}
 
     const char *File::name() noexcept {
@@ -30,7 +30,7 @@ namespace fs {
             return 0;
         }
 
-        u32 remained_sz = std::min(size, file_sz_ - offset);
+        u32 remained_sz = std::min(size, file_sz() - offset);
         byte *wrt_ptr = buf;
         auto sector = readSector(sec_no).value();
         u32 wrt_sz = std::min(remained_sz, bpb.BPB_bytes_per_sec - off_in_bytes);
@@ -58,7 +58,7 @@ namespace fs {
             return 0;
         }
 
-        u32 remained_sz = std::min(size, file_sz_ - offset);
+        u32 remained_sz = std::min(size, file_sz() - offset);
         const byte *read_ptr = buf;
         auto sector = readSector(sec_no).value();
         u32 read_sz = std::min(remained_sz, bpb.BPB_bytes_per_sec - off_in_bytes);
@@ -114,7 +114,9 @@ namespace fs {
     }
 
     bool File::truncate(u32 length) noexcept {
-        file_sz_ = length;
+        if (!isDir()) {
+            file_sz_ = length;
+        }
         u32 clus_num = length == 0 ? 0 : ((length - 1) / fat32::bytesPerClus(fs_.bpb()) + 1);
         if (fs_.fat().resize(fst_clus_, clus_num)) {
             clus_chain_ = std::nullopt;
@@ -216,6 +218,10 @@ namespace fs {
         u32 sec_off = n % fs_.bpb().BPB_sec_per_clus;
         u32 fst_sec = fat32::getFirstSectorOfCluster(fs_.bpb(), clus_chain[clus_off]);
         return {fst_sec + sec_off};
+    }
+
+    u32 File::file_sz() noexcept {
+        return file_sz_;
     }
 
     std::vector<u32> &File::readClusChain() noexcept {
@@ -404,6 +410,10 @@ namespace fs {
         return true;
     }
 
+    u32 Directory::file_sz() noexcept {
+        return readClusChain().size() * fat32::bytesPerClus(fs_.bpb());
+    }
+
     optional<shared_ptr<File>> Directory::crtFileInner(const char *name, bool is_dir) noexcept {
         // convert the name to utf16 and calc required entry num
         util::string_utf8 utf8_name(name);
@@ -432,7 +442,7 @@ namespace fs {
 
         // alloc more when there is not enough empty space
         if (free_entry_cnt < required_entry_num) {
-            if (this->truncate(file_sz_ + (required_entry_num - free_entry_cnt) * sizeof(fat32::LongDirEntry))) {
+            if (this->truncate(file_sz() + (required_entry_num - free_entry_cnt) * sizeof(fat32::LongDirEntry))) {
                 if (free_entry_cnt == 0) {
                     free_entry_start = cur_entry;
                 }
@@ -499,7 +509,6 @@ namespace fs {
                 target_entry_start = cur_entry;
                 chk_sum = l_dir_entry.chk_sum;
             }
-            assert(fat32::isValidLongDirEntry(l_dir_entry, chk_sum));
             target_entry_cnt++;
 
             if (!fat32::isLongDirEntry(l_dir_entry)) { // find a short dir entry, judge whether it's the target
@@ -520,6 +529,7 @@ namespace fs {
                 target_entry_cnt = 0;
                 read_long_name = "";
             } else { // find a long dir entry, record the name part
+                assert(fat32::isValidLongDirEntry(l_dir_entry, chk_sum));
                 has_l_entry = true;
                 read_long_name.insert(0, fat32::readLongEntryName(l_dir_entry));
             }
@@ -598,7 +608,7 @@ namespace fs {
     }
 
     optional<shared_ptr<File>> FAT32fs::getFileByName(const char *name) noexcept {
-        for (const auto &ino_file : cached_lookup_files_) {
+        for (const auto &ino_file: cached_lookup_files_) {
             auto file = ino_file.second;
             if (strcmp(file->name(), name) == 0) {
                 return {file};

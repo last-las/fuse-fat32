@@ -125,4 +125,23 @@ namespace util {
 
         return full_path;
     }
+
+    void dumpObj(void *stuff, u32 size) noexcept {
+        auto *ptr = (const u8 *) stuff;
+        bool last_change_line = false;
+        for (u32 i = 0; i < size; ++i) {
+            printf("%02x", ptr[i]);
+            if (i % 16 == 0 && i != 0) {
+                printf("\n");
+                last_change_line = true;
+            } else {
+                printf(" ");
+                last_change_line = false;
+            }
+        }
+
+        if (!last_change_line) {
+            printf("\n");
+        }
+    }
 }

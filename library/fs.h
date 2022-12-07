@@ -61,9 +61,21 @@ namespace fs {
          * */
         std::optional<u32> sector_no(u32 n) noexcept;
 
+        virtual u32 file_sz() noexcept;
+
         virtual ~File() noexcept;
 
     protected:
+        /**
+         * Return the reference of the cluster chain, using a lazy strategy.
+         * */
+        std::vector<u32> &readClusChain() noexcept;
+
+        /**
+         * Iterate over each directory entry of the cluster chain, return false when chain_index exceeds.
+         * */
+        bool iterClusChainEntry(std::vector<u32> &clus_chain, u32 &chain_index, u32 &sec_index, u32 &sec_off) noexcept;
+
         u32 file_sz_;
         /**
          * Custer number that contains the first directory entry of current file.
@@ -97,17 +109,6 @@ namespace fs {
          * This field should never be used, use readClusChain() instead.
          * */
         std::optional<std::vector<u32>> clus_chain_;
-
-    private:
-        /**
-         * Return the reference of the cluster chain, using a lazy strategy.
-         * */
-        std::vector<u32> &readClusChain() noexcept;
-
-        /**
-         * Iterate over each directory entry of the cluster chain, return false when chain_index exceeds.
-         * */
-        bool iterClusChainEntry(std::vector<u32> &clus_chain, u32 &chain_index, u32 &sec_index, u32 &sec_off) noexcept;
     };
 
     /**
@@ -159,6 +160,8 @@ namespace fs {
         bool isEmpty() noexcept;
 
         bool isDir() noexcept override;
+
+        u32 file_sz() noexcept override;
 
     private:
         optional<shared_ptr<File>> crtFileInner(const char *name, bool is_dir) noexcept;

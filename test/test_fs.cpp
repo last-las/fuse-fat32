@@ -10,7 +10,8 @@ const char short_name_file[] = "short.txt";
 class TestFsEnv : public testing::Environment, Fat32Filesystem {
 public:
     TestFsEnv() {
-        auto linux_file_driver = std::make_shared<device::LinuxFileDriver>(regular_file, SECTOR_SIZE);
+        auto linux_file_driver = std::make_shared<device::LinuxFileDriver>(util::getFullPath(regular_file),
+                                                                           SECTOR_SIZE);
         auto cache_mgr = std::make_shared<device::CacheManager>(std::move(linux_file_driver));
         filesystem = fs::FAT32fs::from(cache_mgr);
         touchTestFiles();
@@ -18,11 +19,12 @@ public:
 
     ~TestFsEnv() override {
         recover();
-        crtFileOrExist(short_name_file);
     }
 
     static void touchTestFiles() {
         ASSERT_EQ(chdir(mnt_point), 0);
+        crtFileOrExist(short_name_file);
+        sync();
     }
 
     static void recover() {
@@ -31,7 +33,6 @@ public:
 };
 
 TEST(FAT32fsTest, RootDir) {
-    GTEST_SKIP();
     auto root_dir = filesystem->getRootDir();
     auto file = root_dir->lookupFile("short.txt").value();
 }

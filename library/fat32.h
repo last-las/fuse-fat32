@@ -201,7 +201,7 @@ namespace fat32 {
         short_dir_entry.fst_clus_low = (u16) (clus & 0xffff);
     }
 
-    inline u32 readEntryClusNo(ShortDirEntry &short_dir_entry) {
+    inline u32 readEntryClusNo(const ShortDirEntry &short_dir_entry) {
         return (short_dir_entry.fst_clus_high << 16) | short_dir_entry.fst_clus_low;
     }
 
@@ -228,7 +228,7 @@ namespace fat32 {
 
     inline bool isValidLongDirEntry(const LongDirEntry &dir_entry, u8 chk_sum) {
         return isLongDirEntry(dir_entry)
-               && dir_entry.attr == 0
+               && dir_entry.type == 0
                && dir_entry.chk_sum == chk_sum
                && dir_entry.fst_clus_low == 0;
     }

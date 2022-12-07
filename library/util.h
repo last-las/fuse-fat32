@@ -104,6 +104,10 @@ namespace util {
     void strip(std::string &s, char a) noexcept;
 
     std::string getFullPath(std::string file_path) noexcept;
+
+    void dumpObj(void * stuff, u32 size) noexcept;
+
+#define DUMP_OBJECT(x) util::dump(&(x), sizeof(x))
 } // namespace util
 
 #endif //STUPID_FAT32_UTIL_H
