@@ -129,6 +129,11 @@ namespace device {
         return inner_device_->writeSectorValue(sec_num, buf);
     }
 
+    void CacheManager::clear() noexcept {
+        sector_cache_.clear();
+        inner_device_->clear();
+    }
+
     bool CacheManager::contains(u32 sec_num) noexcept {
         return sector_cache_.get(sec_num).has_value();
     }

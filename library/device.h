@@ -17,6 +17,8 @@ namespace device {
         virtual std::optional<std::shared_ptr<Sector>> readSector(u32) = 0;
 
         virtual bool writeSectorValue(u32, const u8 *) = 0;
+
+        virtual void clear() noexcept {}
     };
 
     // TODO: comment here.
@@ -70,6 +72,8 @@ namespace device {
         std::optional<std::shared_ptr<Sector>> readSector(u32 sec_num) noexcept override;
 
         bool writeSectorValue(u32 sec_num, const u8 *buf) noexcept override;
+
+        void clear() noexcept override;
 
         bool contains(u32 sec_num) noexcept;
 

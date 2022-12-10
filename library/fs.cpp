@@ -647,6 +647,11 @@ namespace fs {
         assert(false);
     }
 
+    void FAT32fs::flush() noexcept {
+        this->cached_lookup_files_.clear();
+        this->device_->clear();
+    }
+
     fat32::BPB &FAT32fs::bpb() noexcept {
         return this->bpb_;
     }

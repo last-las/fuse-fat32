@@ -64,6 +64,46 @@ void rmDir(const char *dirname) {
     }
 }
 
+ssize_t readFile(const char *filename, char *buf, u32 size, u32 offset) {
+    int fd = open(filename, O_RDONLY);
+    if (fd == -1) {
+        printf("Fail to open file %s: %s\n", filename, strerror(errno));
+        return -1;
+    }
+    if (offset > 0 && lseek(fd, offset, SEEK_SET) == -1) {
+        printf("Fail to lseek file %s: %s\n", filename, strerror(errno));
+        close(fd);
+        return -1;
+    }
+    ssize_t cnt = read(fd, buf, size);
+    if (cnt == -1) {
+        printf("Fail to read file %s: %s\n", filename, strerror(errno));
+    }
+    close(fd);
+    sync();
+    return cnt;
+}
+
+ssize_t writeFile(const char *filename, const char *buf, u32 size, u32 offset) {
+    int fd = open(filename, O_WRONLY);
+    if (fd == -1) {
+        printf("Fail to open file %s: %s\n", filename, strerror(errno));
+        return -1;
+    }
+    if (offset > 0 && lseek(fd, offset, SEEK_SET) == -1) {
+        printf("Fail to lseek file %s: %s\n", filename, strerror(errno));
+        close(fd);
+        return -1;
+    }
+    ssize_t cnt = write(fd, buf, size);
+    if (cnt == -1) {
+        printf("Fail to write file %s: %s\n", filename, strerror(errno));
+    }
+    close(fd);
+    sync();
+    return cnt;
+}
+
 
 bool is_dot_path(const char *path) {
     if (strcmp(path, ".") == 0 || strcmp(path, "..") == 0) {
@@ -187,8 +227,9 @@ public:
     }
 
     virtual ~Fat32Filesystem() {
+        rmDirRecur(mnt_point);
         if (umount(mnt_point) != 0) {
-            printf("errno:%d %s\n", errno, strerror(errno));
+            printf("umount errno:%d %s\n", errno, strerror(errno));
         }
         rm_loop_file(loop_name);
         rmDir(mnt_point);

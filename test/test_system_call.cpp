@@ -21,7 +21,7 @@ char buffer[BUF_SIZE];
 char buffer2[BUF_SIZE];
 const char test_dir[] = "test_dir";
 const char non_exist_file[] = "non_exist_file";
-const char short_name_file[] = "short.txt";
+const char simple_file1[] = "short.txt";
 const char long_name_file[] = "longest_name_in_the_world.txt";
 const char non_empty_file[] = "content.txt";
 const char tmp_file[] = "tmp.txt"; // dynamic used and deleted by test cases
@@ -51,7 +51,7 @@ public:
     void SetUp() override {
         crtDirOrExist(test_dir);
         chdir(test_dir);
-        crtFileOrExist(short_name_file);
+        crtFileOrExist(simple_file1);
         crtFileOrExist(long_name_file);
         crtFileOrExist(non_empty_file);
         crtDirOrExist(short_name_dir);
@@ -122,7 +122,7 @@ TEST(OpenTest, NonExistFile) {
 }
 
 TEST(OpenTest, ExistFile) {
-    assert_file_exist(short_name_file);
+    assert_file_exist(simple_file1);
 }
 
 TEST(OpenTest, ExistDir) {
@@ -143,7 +143,7 @@ bool operator==(const timespec lhs, const timespec rhs) {
 
 // we might need to sleep for 0.2ms under fat32..
 TEST(FstatTest, Time) {
-    int fd = open(short_name_file, O_RDONLY);
+    int fd = open(simple_file1, O_RDONLY);
     struct stat fstat_{};
     ASSERT_EQ(fstat(fd, &fstat_), 0);
 
@@ -159,7 +159,7 @@ TEST(FstatTest, Time) {
 // This test only passes under fat32.
 TEST(FstatTest, Chmod) {
     // before chmod
-    int fd = open(short_name_file, O_RDONLY);
+    int fd = open(simple_file1, O_RDONLY);
     ASSERT_GT(fd, 0);
     struct stat fstat_{};
     ASSERT_EQ(fstat(fd, &fstat_), 0);
@@ -167,7 +167,7 @@ TEST(FstatTest, Chmod) {
 
     // chmod
     fstat_.st_mode ^= 0001;
-    ASSERT_EQ(chmod(short_name_file, fstat_.st_mode), 0);
+    ASSERT_EQ(chmod(simple_file1, fstat_.st_mode), 0);
 
     // after chmod
     ASSERT_EQ(fstat(fd, &fstat_), 0);
@@ -178,13 +178,13 @@ TEST(FstatTest, Chmod) {
 
 // This test only passes under fat32.
 TEST(FstatTest, Chown) {
-    int fd = open(short_name_file, O_RDONLY);
+    int fd = open(simple_file1, O_RDONLY);
     ASSERT_GT(fd, 0);
     struct stat fstat_{};
     ASSERT_EQ(fstat(fd, &fstat_), 0);
 
     errno = 0;
-    ASSERT_EQ(chown(short_name_file, 1, 1), -1);
+    ASSERT_EQ(chown(simple_file1, 1, 1), -1);
     ASSERT_EQ(errno, EPERM);
 
     close(fd);
@@ -196,7 +196,7 @@ TEST(MkdirTest, CrtExistDir) {
     ASSERT_EQ(errno, EEXIST);
 
     errno = 0;
-    ASSERT_EQ(mkdir(short_name_file, 0755), -1);
+    ASSERT_EQ(mkdir(simple_file1, 0755), -1);
     ASSERT_EQ(errno, EEXIST);
 }
 
@@ -461,7 +461,7 @@ TEST(MknodTest, SpecialFile) {
 // This test case only passes under fat32
 TEST(LinkTest, HardLink) {
     errno = 0;
-    int ret = link(short_name_file, non_exist_file);
+    int ret = link(simple_file1, non_exist_file);
     EXPECT_EQ(ret, -1);
     EXPECT_EQ(errno, EPERM);
 
@@ -473,7 +473,7 @@ TEST(LinkTest, HardLink) {
 // This test case only passes under fat32
 TEST(LinkTest, SymLink) {
     errno = 0;
-    int ret = symlink(short_name_file, non_exist_file);
+    int ret = symlink(simple_file1, non_exist_file);
     EXPECT_EQ(ret, -1);
     EXPECT_EQ(errno, EPERM);
 
@@ -485,32 +485,32 @@ TEST(LinkTest, SymLink) {
 // This test case only passes under fat32
 TEST(RenameTest, IgnoreFlags) {
     errno = 0;
-    int ret = renameat2(AT_FDCWD, short_name_file, AT_FDCWD, long_name_file, RENAME_EXCHANGE);
+    int ret = renameat2(AT_FDCWD, simple_file1, AT_FDCWD, long_name_file, RENAME_EXCHANGE);
     EXPECT_EQ(ret, -1);
     if (ret == -1) {
         ASSERT_EQ(errno, EINVAL);
     } else { // recover to avoid influence the following test.
-        renameat2(AT_FDCWD, short_name_file, AT_FDCWD, long_name_file, RENAME_EXCHANGE);
+        renameat2(AT_FDCWD, simple_file1, AT_FDCWD, long_name_file, RENAME_EXCHANGE);
     }
 }
 
 TEST(RenameTest, SrcNonExist) {
     errno = 0;
-    ASSERT_EQ(rename(non_exist_file, short_name_file), -1);
+    ASSERT_EQ(rename(non_exist_file, simple_file1), -1);
     ASSERT_EQ(errno, ENOENT);
 }
 
 TEST(RenameTest, SrcFileDstNonExist) {
-    assert_file_exist(short_name_file);
+    assert_file_exist(simple_file1);
     assert_file_non_exist(non_exist_file);
-    ASSERT_EQ(rename(short_name_file, non_exist_file), 0);
-    assert_file_non_exist(short_name_file);
+    ASSERT_EQ(rename(simple_file1, non_exist_file), 0);
+    assert_file_non_exist(simple_file1);
     assert_file_exist(non_exist_file);
 
     // recover
-    ASSERT_EQ(rename(non_exist_file, short_name_file), 0);
+    ASSERT_EQ(rename(non_exist_file, simple_file1), 0);
     assert_file_non_exist(non_exist_file);
-    assert_file_exist(short_name_file);
+    assert_file_exist(simple_file1);
 }
 
 TEST(RenameTest, SrcDirDstNonExist) {
@@ -529,16 +529,16 @@ TEST(RenameTest, SrcDirDstNonExist) {
 TEST(RenameTest, SrcFileDstFile) {
     create_file(tmp_file);
 
-    assert_file_exist(short_name_file);
+    assert_file_exist(simple_file1);
     assert_file_exist(tmp_file);
-    ASSERT_EQ(rename(short_name_file, tmp_file), 0);
-    assert_file_non_exist(short_name_file);
+    ASSERT_EQ(rename(simple_file1, tmp_file), 0);
+    assert_file_non_exist(simple_file1);
     assert_file_exist(tmp_file);
 
     // recover
-    ASSERT_EQ(rename(tmp_file, short_name_file), 0);
+    ASSERT_EQ(rename(tmp_file, simple_file1), 0);
     assert_file_non_exist(tmp_file);
-    assert_file_exist(short_name_file);
+    assert_file_exist(simple_file1);
 }
 
 TEST(RenameTest, SrcFileDstDir) {

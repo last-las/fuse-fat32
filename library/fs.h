@@ -222,6 +222,8 @@ namespace fs {
          * */
         void closeFile(u64 ino) noexcept;
 
+        void flush() noexcept;
+
         fat32::BPB &bpb() noexcept;
 
         fat32::FAT &fat() noexcept;
@@ -234,7 +236,6 @@ namespace fs {
         std::shared_ptr<device::Device> device_;
     private:
         util::LRUCacheMap<u64, shared_ptr<File>> cached_lookup_files_{20};
-        std::unordered_map<u64, shared_ptr<File>> cached_open_files_; // todo: remove the structure, and refactor `openFile()`
     };
 
 } // namespace fs

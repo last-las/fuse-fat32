@@ -1,11 +1,14 @@
 #include "gtest/gtest.h"
 #include "memory"
+#include <sys/mount.h>
 
 #include "common.h"
 #include "fs.h"
 
 std::unique_ptr<fs::FAT32fs> filesystem;
-const char short_name_file[] = "short.txt";
+const char simple_file1[] = "short1.txt";
+const char simple_file2[] = "short2.txt";
+const char long_name_file[] = "this_is_a_long_name_file.1234";
 
 class TestFsEnv : public testing::Environment, Fat32Filesystem {
 public:
@@ -23,18 +26,37 @@ public:
 
     static void touchTestFiles() {
         ASSERT_EQ(chdir(mnt_point), 0);
-        crtFileOrExist(short_name_file);
+        crtFileOrExist(simple_file1);
+        crtFileOrExist(simple_file2);
+        crtFileOrExist(long_name_file);
         sync();
     }
 
     static void recover() {
         ASSERT_EQ(chdir(".."), 0);
     }
+
+    static void reMount() {
+        chdir("..");
+
+        if (umount(mnt_point) != 0) {
+            printf("errno: %d %s\n", errno, strerror(errno));
+            exit(1);
+        }
+        if (mount(loop_name, mnt_point, "vfat", 0, nullptr) != 0) {
+            printf("Mount failed, skip the following tests\n");
+            exit(1);
+        }
+
+        chdir(mnt_point);
+    }
 };
 
 TEST(FAT32fsTest, RootDir) {
-    auto root_dir = filesystem->getRootDir();
-    auto file = root_dir->lookupFile("short.txt").value();
+    {
+        auto _ = filesystem->getRootDir();
+    }
+    filesystem->flush();
 }
 
 TEST(FAT32fsTest, GetFileByIno) {
@@ -45,8 +67,44 @@ TEST(FAT32fsTest, OpenFileByIno) {
     GTEST_SKIP();
 }
 
-TEST(FileTest, BasicRW) {
-    GTEST_SKIP();
+TEST(FileTest, SimpleRead) {
+    {
+        char buff[100] = {0};
+        std::string simple_string = "hello world!";
+        auto wrt_sz = writeFile(simple_file1, simple_string.c_str(), simple_string.size(), 0);
+        auto root_dir = filesystem->getRootDir();
+        auto file = root_dir->lookupFile(simple_file1).value();
+
+        u32 rd_sz = file->read(buff, 100, 0);
+
+        ASSERT_EQ(wrt_sz, simple_string.size());
+        ASSERT_EQ(wrt_sz, rd_sz);
+        ASSERT_STREQ(buff, simple_string.c_str());
+    }
+
+    filesystem->flush();
+}
+
+TEST(FileTest, SimpleWrite) {
+    {
+        char buff[100] = {0};
+        char simple_string[] = "hello world!";
+        u32 str_len = strlen(simple_string);
+        auto root_dir = filesystem->getRootDir();
+        auto file = root_dir->lookupFile(simple_file2).value();
+        file->truncate(str_len);
+        u32 wrt_sz = file->write(simple_string, str_len, 0);
+        file->sync(true);
+        filesystem->flush();
+        TestFsEnv::reMount();
+
+        auto rd_sz = readFile(simple_file2, buff, 100, 0);
+        ASSERT_EQ(wrt_sz, str_len);
+        ASSERT_EQ(wrt_sz, rd_sz);
+        ASSERT_STREQ(buff, simple_string);
+    }
+
+    filesystem->flush();
 }
 
 TEST(FileTest, SyncWithMeta) {

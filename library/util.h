@@ -69,6 +69,11 @@ namespace util {
             }
         }
 
+        void clear() noexcept {
+            caches_map_.clear();
+            key_value_list_.clear();
+        }
+
         u64 size() noexcept {
             return key_value_list_.size();
         }
@@ -105,7 +110,7 @@ namespace util {
 
     std::string getFullPath(std::string file_path) noexcept;
 
-    void dumpObj(void * stuff, u32 size) noexcept;
+    void dumpObj(void *stuff, u32 size) noexcept;
 
 #define DUMP_OBJECT(x) util::dump(&(x), sizeof(x))
 } // namespace util
