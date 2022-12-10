@@ -114,7 +114,7 @@ TEST(FileTest, ExceedRW) {
         char buf;
         u32 impossible_offset = 1000;
         ASSERT_EQ(file->read(&buf, 1, impossible_offset), 0);
-        ASSERT_EQ(file->write(&buf, 1, impossible_offset), 0);
+        ASSERT_EQ(file->write(&buf, 1, impossible_offset), 1);
     }
 
     filesystem->flush();
@@ -150,7 +150,6 @@ TEST(FileTest, LargeWrite) {
     {
         auto root_dir = filesystem->getRootDir();
         auto file = root_dir->lookupFile(simple_file2).value();
-        file->truncate(clus_size * clus_cnt);
         for (u32 i = 0; i < clus_cnt; i++) {
             auto wrt_sz = file->write((const char *) &clus_content[0], clus_size, i * clus_size);
             ASSERT_EQ(wrt_sz, clus_size);

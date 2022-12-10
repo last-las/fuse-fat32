@@ -54,11 +54,12 @@ namespace fs {
         u32 off_in_sec = offset / bpb.BPB_bytes_per_sec;
         u32 off_in_bytes = offset % bpb.BPB_bytes_per_sec;
         u32 sec_no = off_in_sec;
-        if (offset >= file_sz()) { // offset exceeds file size, return zero.
+        if (offset + size >= file_sz() &&
+            !truncate(offset + size)) { // offset exceeds file size, try to expand size first
             return 0;
         }
 
-        u32 remained_sz = std::min(size, file_sz() - offset);
+        u32 remained_sz = size;
         const byte *read_ptr = buf;
         auto sector = readSector(sec_no).value();
         u32 read_sz = std::min(remained_sz, bpb.BPB_bytes_per_sec - off_in_bytes);
