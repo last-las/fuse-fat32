@@ -26,7 +26,7 @@ namespace fs {
         u32 off_in_sec = offset / bpb.BPB_bytes_per_sec;
         u32 off_in_bytes = offset % bpb.BPB_bytes_per_sec;
         u32 sec_no = off_in_sec;
-        if (!readSector(sec_no).has_value()) { // offset has exceeded the file size, return zero.
+        if (offset >= file_sz()) { // offset exceeds file size, return zero.
             return 0;
         }
 
@@ -54,7 +54,7 @@ namespace fs {
         u32 off_in_sec = offset / bpb.BPB_bytes_per_sec;
         u32 off_in_bytes = offset % bpb.BPB_bytes_per_sec;
         u32 sec_no = off_in_sec;
-        if (!readSector(sec_no).has_value()) { // offset exceeded, return.
+        if (offset >= file_sz()) { // offset exceeds file size, return zero.
             return 0;
         }
 

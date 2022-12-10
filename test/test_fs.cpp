@@ -107,6 +107,69 @@ TEST(FileTest, SimpleWrite) {
     filesystem->flush();
 }
 
+TEST(FileTest, ExceedRW) {
+    {
+        auto root_dir = filesystem->getRootDir();
+        auto file = root_dir->lookupFile(simple_file1).value();
+        char buf;
+        u32 impossible_offset = 1000;
+        ASSERT_EQ(file->read(&buf, 1, impossible_offset), 0);
+        ASSERT_EQ(file->write(&buf, 1, impossible_offset), 0);
+    }
+
+    filesystem->flush();
+}
+
+TEST(FileTest, LargeRead) {
+    u32 clus_size = fat32::bytesPerClus(filesystem->bpb());
+    u32 clus_cnt = 10;
+    std::vector<u8> clus_content(clus_size, 0xdb);
+    {
+        for (u32 i = 0; i < clus_cnt; i++) {
+            auto wrt_sz = writeFile(simple_file1, (const char *) &clus_content[0], clus_size, i * clus_size);
+            ASSERT_EQ(wrt_sz, clus_size);
+        }
+        auto root_dir = filesystem->getRootDir();
+        auto file = root_dir->lookupFile(simple_file1).value();
+
+        for (u32 i = 0; i < clus_cnt; i++) {
+            std::vector<u8> buffer(clus_size, 0);
+            auto read_sz = file->read((char *) &buffer[0], clus_size, i * clus_size);
+            ASSERT_EQ(read_sz, clus_size);
+            ASSERT_EQ(buffer, clus_content);
+        }
+    }
+
+    filesystem->flush();
+}
+
+TEST(FileTest, LargeWrite) {
+    u32 clus_size = fat32::bytesPerClus(filesystem->bpb());
+    u32 clus_cnt = 10;
+    std::vector<u8> clus_content(clus_size, 0xef);
+    {
+        auto root_dir = filesystem->getRootDir();
+        auto file = root_dir->lookupFile(simple_file2).value();
+        file->truncate(clus_size * clus_cnt);
+        for (u32 i = 0; i < clus_cnt; i++) {
+            auto wrt_sz = file->write((const char *) &clus_content[0], clus_size, i * clus_size);
+            ASSERT_EQ(wrt_sz, clus_size);
+        }
+        file->sync(true);
+        filesystem->flush();
+        TestFsEnv::reMount();
+
+        for (u32 i = 0; i < clus_cnt; i++) {
+            std::vector<u8> buffer(clus_size, 0);
+            auto read_sz = readFile(simple_file2, (char *) &buffer[0], clus_size, i * clus_size);
+            ASSERT_EQ(read_sz, clus_size);
+            ASSERT_EQ(buffer, clus_content);
+        }
+    }
+
+    filesystem->flush();
+}
+
 TEST(FileTest, SyncWithMeta) {
     GTEST_SKIP();
 }
