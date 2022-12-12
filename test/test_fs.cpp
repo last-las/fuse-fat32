@@ -9,7 +9,9 @@ std::unique_ptr<fs::FAT32fs> filesystem;
 const char simple_file1[] = "short1.txt";
 const char simple_file2[] = "short2.txt";
 const char simple_file3[] = "short3.txt";
-const char simple_dir[] = "simple";
+const char empty_file[] = "empty.txt";
+const char simple_dir1[] = "simple1";
+const char simple_dir2[] = "simple2";
 const char long_name_file[] = "this_is_a_long_name_file.1234";
 
 class TestFsEnv : public testing::Environment, Fat32Filesystem {
@@ -31,8 +33,10 @@ public:
         crtFileOrExist(simple_file1);
         crtFileOrExist(simple_file2);
         crtFileOrExist(simple_file3);
+        crtFileOrExist(empty_file);
         crtFileOrExist(long_name_file);
-        crtDirOrExist(simple_dir);
+        crtDirOrExist(simple_dir1);
+        crtDirOrExist(simple_dir2);
         sync();
     }
 
@@ -241,16 +245,93 @@ TEST(FileTest, SyncDeleted) {
     GTEST_SKIP();
 }
 
-TEST(FileTest, TruncateLess) {
-    GTEST_SKIP();
-}
+TEST(FileTest, Truncate) {
+    u32 clus_size = fat32::bytesPerClus(filesystem->bpb());
+    {
+        auto root = filesystem->getRootDir();
+        auto file = root->lookupFile(empty_file).value();
+        struct stat file_stat;
 
-TEST(FileTest, TruncateMore) {
-    GTEST_SKIP();
+        // expand too big to cause failure
+        u32 impossible_size = 4294967295; // U32::max
+        ASSERT_FALSE(file->truncate(impossible_size));
+        file->sync(true);
+        filesystem->flush();
+        TestFsEnv::reMount();
+        file_stat = readFileStat(empty_file).value();
+        ASSERT_EQ(file_stat.st_size, 0);
+
+        // expand
+        u32 expand_size = clus_size * 2 + 1;
+        file->truncate(expand_size);
+        file->sync(true);
+        filesystem->flush();
+        TestFsEnv::reMount();
+        file_stat = readFileStat(empty_file).value();
+        ASSERT_EQ(file_stat.st_size, expand_size);
+
+        // shrink
+        u32 shrink_size = clus_size;
+        file->truncate(shrink_size);
+        file->sync(true);
+        filesystem->flush();
+        TestFsEnv::reMount();
+        file_stat = readFileStat(empty_file).value();
+        ASSERT_EQ(file_stat.st_size, shrink_size);
+
+        // clear
+        file->truncate(0);
+        file->sync(true);
+        filesystem->flush();
+        TestFsEnv::reMount();
+        file_stat = readFileStat(empty_file).value();
+        ASSERT_EQ(file_stat.st_size, 0);
+    }
+
+    filesystem->flush();
 }
 
 TEST(FileTest, SetTime) {
-    GTEST_SKIP();
+    auto origin_stat = readFileStat(simple_file1).value();
+
+    auto root = filesystem->getRootDir();
+    auto file = root->lookupFile(simple_file1).value();
+    fat32::FatTimeStamp2 dos_ts = fat32::getCurDosTs2();
+    // increase a year
+    u16 year = ((dos_ts.ts.date >> 9) & 0b1111111) + 1;
+    dos_ts.ts.date = ((dos_ts.ts.date & (0 << 9)) | (year << 9));
+
+    file->setWrtTime(dos_ts.ts);
+    file->setAccTime(dos_ts.ts);
+    file->setCrtTime(dos_ts);
+    file->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+
+    auto after_stat = readFileStat(simple_file1).value();
+    ASSERT_EQ(unixTsCmp(origin_stat.st_atim, after_stat.st_atim), -1);
+    ASSERT_EQ(unixTsCmp(origin_stat.st_ctim, after_stat.st_ctim), -1);
+    ASSERT_EQ(unixTsCmp(origin_stat.st_mtim, after_stat.st_mtim), -1);
+}
+
+TEST(FileTest, MarkDeleted) {
+    auto root = filesystem->getRootDir();
+    // delete a file and directory
+    auto file = root->lookupFile(simple_file2).value();
+    auto dir = root->lookupFile(simple_dir2).value();
+    file->markDeleted();
+    dir->markDeleted();
+    file->sync(true);
+    dir->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+
+    errno = 0;
+    ASSERT_EQ(open(simple_file2, O_RDONLY), -1);
+    ASSERT_EQ(errno, ENOENT);
+    errno = 0;
+    ASSERT_EQ(open(simple_dir2, O_DIRECTORY), -1);
+    ASSERT_EQ(errno, ENOENT);
 }
 
 // todo: check here.

@@ -117,12 +117,12 @@ namespace fs {
     }
 
     bool File::truncate(u32 length) noexcept {
-        if (!isDir()) {
-            file_sz_ = length;
-        }
         u32 clus_num = length == 0 ? 0 : ((length - 1) / fat32::bytesPerClus(fs_.bpb()) + 1);
         if (fs_.fat().resize(fst_clus_, clus_num)) {
             clus_chain_ = std::nullopt;
+            if (!isDir()) {
+                file_sz_ = length;
+            }
             return true;
         }
         return false;
