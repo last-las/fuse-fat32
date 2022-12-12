@@ -104,6 +104,30 @@ ssize_t writeFile(const char *filename, const char *buf, u32 size, u32 offset) {
     return cnt;
 }
 
+std::optional<struct stat> readFileStat(const char *filename) {
+    struct stat stat_buf{};
+    int ret = stat(filename, &stat_buf);
+    if (ret == -1) {
+        printf("Fail to read stat of file %s: %s\n", filename, strerror(errno));
+        return std::nullopt;
+    }
+
+    return stat_buf;
+}
+
+// return 1, 0, -1 to indicate x is greater, equal or less than y.
+int unixTsCmp(const struct timespec &x, const struct timespec &y) {
+    if (x.tv_sec == y.tv_sec) {
+        if (x.tv_nsec == y.tv_nsec) {
+            return 0;
+        } else {
+            return x.tv_nsec > y.tv_nsec ? 1 : -1;
+        }
+    } else {
+        return x.tv_sec > y.tv_sec ? 1 : -1;
+    }
+}
+
 
 bool is_dot_path(const char *path) {
     if (strcmp(path, ".") == 0 || strcmp(path, "..") == 0) {

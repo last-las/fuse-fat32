@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstring>
 #include <time.h>
+#include <sys/time.h>
 
 #include "fat32.h"
 #include "util.h"
@@ -104,7 +105,10 @@ namespace fat32 {
     }
 
     FatTimeStamp unix2DosTs(timespec unix_ts) {
-        tm *tm_ = localtime(&unix_ts.tv_sec);
+        // Input for both gmtime and localtime is UTC time stored in struct timespec, gmtime returns struct
+        // expressed in UTC, but the return value of localtime is expressed relative to user's specified timezone.
+        // On unix-like filesystem the time is always stored in UTC, so gmtime is used here.
+        tm *tm_ = gmtime(&unix_ts.tv_sec);
         if (tm_->tm_sec == 60) { // ignore leap sec
             tm_->tm_sec = 59;
         }
@@ -155,6 +159,7 @@ namespace fat32 {
     }
 
     FatTimeStamp getCurDosTs() noexcept {
+        // clock_gettime(CLOCK_REALTIME, ...) and gettimeofday are the same in kernel.
         timespec unix_ts;
         assert(clock_gettime(CLOCK_REALTIME, &unix_ts) == 0);
         return fat32::unix2DosTs(unix_ts);

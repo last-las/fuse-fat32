@@ -103,7 +103,9 @@ namespace fs {
             short_dir_entry->crt_ts2 = crt_time_;
             short_dir_entry->lst_acc_date = acc_date_;
             short_dir_entry->wrt_ts = wrt_time_;
-            short_dir_entry->file_sz = file_sz_;  // todo: for directory, sync should not write the file size(or test whether the driver still work after writing it).
+            if (!isDir()) {
+                short_dir_entry->file_sz = file_sz_;
+            }
             fat32::setFstClusNo(*short_dir_entry, fst_clus_);
         }
 

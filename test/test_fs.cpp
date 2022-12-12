@@ -8,6 +8,8 @@
 std::unique_ptr<fs::FAT32fs> filesystem;
 const char simple_file1[] = "short1.txt";
 const char simple_file2[] = "short2.txt";
+const char simple_file3[] = "short3.txt";
+const char simple_dir[] = "simple";
 const char long_name_file[] = "this_is_a_long_name_file.1234";
 
 class TestFsEnv : public testing::Environment, Fat32Filesystem {
@@ -28,7 +30,9 @@ public:
         ASSERT_EQ(chdir(mnt_point), 0);
         crtFileOrExist(simple_file1);
         crtFileOrExist(simple_file2);
+        crtFileOrExist(simple_file3);
         crtFileOrExist(long_name_file);
+        crtDirOrExist(simple_dir);
         sync();
     }
 
@@ -54,7 +58,8 @@ public:
 
 TEST(FAT32fsTest, RootDir) {
     {
-        auto _ = filesystem->getRootDir();
+        auto root = filesystem->getRootDir();
+        ASSERT_EQ(root->ino(), fs::KRootDirIno);
     }
     filesystem->flush();
 }
@@ -169,11 +174,70 @@ TEST(FileTest, LargeWrite) {
     filesystem->flush();
 }
 
+TEST(FileTest, SyncWithoutMeta) {
+    {
+        auto origin_stat = readFileStat(simple_file3).value();
+
+        // perform read and write to change meta info and then sync the disk.
+        const u32 buf_size = 123;
+        char tmp_buf[buf_size];
+        auto root_dir = filesystem->getRootDir();
+        auto file = root_dir->lookupFile(simple_file3).value();
+        ASSERT_EQ(file->write(tmp_buf, buf_size, 0), buf_size);
+        ASSERT_EQ(file->read(tmp_buf, buf_size, 0), buf_size);
+        file->sync(false);
+        filesystem->flush();
+        TestFsEnv::reMount();
+
+        auto changed_stat = readFileStat(simple_file3).value();
+        ASSERT_EQ(changed_stat.st_size, 0);
+        ASSERT_EQ(unixTsCmp(origin_stat.st_atim, changed_stat.st_atim), 0);
+        ASSERT_EQ(unixTsCmp(origin_stat.st_mtim, changed_stat.st_mtim), 0);
+        ASSERT_EQ(unixTsCmp(origin_stat.st_ctim, changed_stat.st_ctim), 0);
+
+        // recover
+        file->truncate(0);
+    }
+
+    filesystem->flush();
+}
+
 TEST(FileTest, SyncWithMeta) {
+    {
+        auto origin_stat = readFileStat(simple_file3).value();
+        sleep(2); // fat32 time field has two seconds deviation
+
+        // perform read and write to change meta info and then sync the disk.
+        const u32 buf_size = 321;
+        char tmp_buf[buf_size];
+        auto root_dir = filesystem->getRootDir();
+        auto file = root_dir->lookupFile(simple_file3).value();
+        ASSERT_EQ(file->write(tmp_buf, buf_size, 0), buf_size);
+        ASSERT_EQ(file->read(tmp_buf, buf_size, 0), buf_size);
+        file->sync(true);
+        filesystem->flush();
+        TestFsEnv::reMount();
+
+        auto changed_stat = readFileStat(simple_file3).value();
+        ASSERT_EQ(changed_stat.st_size, buf_size);
+        ASSERT_EQ(unixTsCmp(origin_stat.st_atim, changed_stat.st_atim), 0); // fat32 access time only records date
+        ASSERT_EQ(unixTsCmp(origin_stat.st_ctim, changed_stat.st_ctim), 0); // can not be changed
+        ASSERT_EQ(unixTsCmp(origin_stat.st_mtim, changed_stat.st_mtim), -1);
+
+        // recover
+        file->truncate(0);
+    }
+
+    filesystem->flush();
+}
+
+// todo:
+TEST(FileTest, SyncDir) {
     GTEST_SKIP();
 }
 
-TEST(FileTest, SyncWithoutMeta) {
+// todo:
+TEST(FileTest, SyncDeleted) {
     GTEST_SKIP();
 }
 
