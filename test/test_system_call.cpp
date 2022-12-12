@@ -63,7 +63,7 @@ public:
 
     void TearDown() override {
         chdir("..");
-        rmDirRecur(test_dir);
+        rmDirRecur(test_dir, true);
     }
 };
 

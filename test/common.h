@@ -138,7 +138,7 @@ bool is_dot_path(const char *path) {
 }
 
 // a simple version of "rm -rf dirname"
-void rmDirRecur(const char *dirname) {
+void rmDirRecur(const char *dirname, bool rm_root) {
     // open dirname and chdir to it
     int dir_fd = open(dirname, O_DIRECTORY);
     if (dir_fd == -1) {
@@ -156,7 +156,7 @@ void rmDirRecur(const char *dirname) {
             struct stat fstat_{};
             stat(d->d_name, &fstat_);
             if (fstat_.st_mode & S_IFDIR) {
-                rmDirRecur(d->d_name);
+                rmDirRecur(d->d_name, true);
             } else {
                 rmFile(d->d_name);
             }
@@ -166,9 +166,11 @@ void rmDirRecur(const char *dirname) {
     close(dir_fd);
     delete[]buffer;
 
-    // chdir to parent dir and remove dirname
+    // chdir to parent dir
     chdir("..");
-    rmDir(dirname);
+    if (rm_root) {
+        rmDir(dirname);
+    }
 }
 
 
@@ -251,7 +253,7 @@ public:
     }
 
     virtual ~Fat32Filesystem() {
-        rmDirRecur(mnt_point);
+        rmDirRecur(mnt_point, false);
         if (umount(mnt_point) != 0) {
             printf("umount errno:%d %s\n", errno, strerror(errno));
         }
