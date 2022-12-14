@@ -47,8 +47,8 @@ public:
     static void reMount() {
         chdir("..");
 
-        if (umount(mnt_point) != 0) {
-            printf("errno: %d %s\n", errno, strerror(errno));
+        if (wrappedUmount(mnt_point) != 0) {
+            printf("umount failed, errno: %d %s\n", errno, strerror(errno));
             exit(1);
         }
         if (mount(loop_name, mnt_point, "vfat", 0, nullptr) != 0) {

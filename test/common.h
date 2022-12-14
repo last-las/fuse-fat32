@@ -231,6 +231,26 @@ void rm_loop_file(const char *loop_name_) {
     }
 }
 
+int wrappedUmount(const char *file_path) {
+    errno = 0;
+    int times = 3;
+    sync();
+    while (umount(file_path) != 0 && times > 0) {
+        if (errno == 16) { // device busy
+            usleep(300000);
+            times--;
+        } else {
+            return -1;
+        }
+    }
+
+    if (times > 0) {
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
 class Fat32Filesystem {
 public:
     Fat32Filesystem() {
@@ -254,7 +274,7 @@ public:
 
     virtual ~Fat32Filesystem() {
         rmDirRecur(mnt_point, false);
-        if (umount(mnt_point) != 0) {
+        if (wrappedUmount(mnt_point) != 0) {
             printf("umount errno:%d %s\n", errno, strerror(errno));
         }
         rm_loop_file(loop_name);
