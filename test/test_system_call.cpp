@@ -67,56 +67,6 @@ public:
     }
 };
 
-void assert_file_exist(const char *file) {
-    int fd = open(file, O_RDONLY);
-    ASSERT_GT(fd, 0);
-    ASSERT_EQ(close(fd), 0);
-}
-
-void assert_dir_exist(const char *dir) {
-    int dir_fd = open(dir, O_DIRECTORY);
-    ASSERT_GT(dir_fd, 0);
-    ASSERT_EQ(close(dir_fd), 0);
-}
-
-void assert_file_non_exist(const char *file) {
-    errno = 0;
-    int fd = open(file, O_RDONLY);
-    ASSERT_EQ(fd, -1);
-    ASSERT_EQ(errno, ENOENT);
-}
-
-void assert_dir_non_exist(const char *dir) {
-    errno = 0;
-    int fd = open(dir, O_DIRECTORY);
-    ASSERT_EQ(fd, -1);
-    ASSERT_EQ(errno, ENOENT);
-}
-
-int create_file_ret_fd(const char *file) {
-    int fd = open(file, O_CREAT, 0644);
-    EXPECT_GT(fd, 0);
-    return fd;
-}
-
-void create_file(const char *file) {
-    int fd = create_file_ret_fd(file);
-    ASSERT_EQ(close(fd), 0);
-}
-
-void create_dir(const char *dir) {
-    ASSERT_EQ(mkdir(dir, 0755), 0) << strerror(errno);
-}
-
-void rm_file(const char *file) {
-    ASSERT_EQ(unlink(file), 0) << strerror(errno);
-
-}
-
-void rm_dir(const char *dir) {
-    ASSERT_EQ(rmdir(dir), 0) << strerror(errno);
-}
-
 TEST(OpenTest, NonExistFile) {
     assert_file_non_exist(non_exist_file);
 }

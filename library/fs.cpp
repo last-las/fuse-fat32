@@ -77,6 +77,8 @@ namespace fs {
         return read_ptr - buf;
     }
 
+    // todo: add synced flag
+    // todo: directory and file will write to the same area, this might introduce problems.
     void File::sync(bool sync_meta) noexcept {
         if (is_deleted_) {
             return;
