@@ -358,30 +358,43 @@ TEST(FileTest, RenameTargetExists) {
     filesystem->flush();
 }
 
-TEST(DirTest, crtFile) {
+TEST(DirTest, crtShortFile) {
     const char non_exist_short_name[] = "crtFile.txt";
-    const char non_exist_long_name[] = "create_file_test_non_exist_long_name.txt";
     const char buf[] = "create file tests";
     u32 buf_size = strlen(buf);
     {
         auto root = filesystem->getRootDir();
         auto short_file = root->crtFile(non_exist_short_name).value();
         ASSERT_EQ(short_file->write(buf, buf_size, 0), buf_size);
-        auto long_file = root->crtFile(non_exist_long_name).value();
-        ASSERT_EQ(long_file->write(buf, buf_size, 0), buf_size);
         root->sync(false);
         short_file->sync(true);
-        long_file->sync(true);
         filesystem->flush();
         TestFsEnv::reMount();
 
         assert_file_content(non_exist_short_name, buf, buf_size);
-        assert_file_content(non_exist_long_name, buf, buf_size);
     }
 
     filesystem->flush();
 }
 
+TEST(DirTest, crtLongFile) {
+    const char non_exist_long_name[] = "create_file_test_non_exist_long_name.txt";
+    const char buf[] = "create file tests";
+    u32 buf_size = strlen(buf);
+    {
+        auto root = filesystem->getRootDir();
+        auto long_file = root->crtFile(non_exist_long_name).value();
+        ASSERT_EQ(long_file->write(buf, buf_size, 0), buf_size);
+        long_file->sync(true);
+        root->sync(true);
+        filesystem->flush();
+        TestFsEnv::reMount();
+
+        assert_file_content(non_exist_long_name, buf, buf_size);
+    }
+
+    filesystem->flush();
+}
 
 // DirTest::crtFile must pass before running this.
 TEST(FileTest, RenameTargetNotExists) {
