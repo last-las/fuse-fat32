@@ -67,8 +67,7 @@ public:
          * flush() is called after each test case to make sure:
          * 1. there are no cached file objects, which might influence the next test case if it invokes system calls
          * before looking up a file object(e.g. create a file and then look up root dir);
-         *
-         * 2. there are no cached sector objects, which means the content of them has been written to the disk.
+         * 2. there are no cached sector objects, which means the content of them has been written back to the disk.
          *
          * sync() is called to make sure the content has been flushed to the disk by linux kernel.
          * */

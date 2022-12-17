@@ -209,7 +209,6 @@ TEST(FAT32Test, genBasisNameFromShort) {
     fat32::BasisName gen_basis_name;
     for (u32 i = 0; i < KNameCnt; ++i) {
         gen_basis_name = fat32::genBasisNameFromShort(short_names[i]);
-        printf("%s\n", short_names[i].c_str());
         assert_basis_name_eq(gen_basis_name, basis_names[i]);
     }
 }
@@ -271,6 +270,11 @@ TEST(FAT32Test, AllocFree) {
     // failed alloc
     ASSERT_FALSE(fat.allocClus(avail_clus_cnt + 1).has_value());
 
+    // free empty cluster
+    fat.freeClus(0);
+    fat.freeClus(1);
+    ASSERT_TRUE(isOriginFAT());
+
     // check available cnt
     ASSERT_EQ(avail_clus_cnt, fat.availClusCnt());
 }
@@ -295,6 +299,11 @@ TEST(FAT32Test, ReadClusChain) {
     fat32::FAT fat = fat32::FAT(bpb, 0xffffffff, device_);
     std::vector<u32> clus_chain, read_clus_chain;
 
+    // read empty clus chains
+    clus_chain = fat.readClusChains(0);
+    ASSERT_TRUE(clus_chain.empty());
+
+    // read valid clus chains
     clus_chain = fat.allocClus(5).value();
     read_clus_chain = fat.readClusChains(clus_chain[0]);
     ASSERT_EQ(clus_chain, read_clus_chain);

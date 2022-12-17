@@ -407,6 +407,9 @@ namespace fat32 {
 
     void FAT::freeClus(u32 fst_clus) noexcept {
         u32 cur_clus = fst_clus;
+        if (!isValidCluster(fst_clus)) {
+            return;
+        }
         while (!isEndOfClusChain(cur_clus)) {
             FATPos fat_pos = getClusPosOnFAT(bpb_, cur_clus);
             cur_clus = readFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset);
@@ -417,12 +420,14 @@ namespace fat32 {
 
     std::vector<u32> FAT::readClusChains(u32 fst_clus) noexcept {
         std::vector<u32> clus_chains;
-        u32 cur_clus = fst_clus;
 
-        while (!isEndOfClusChain(cur_clus)) {
-            clus_chains.push_back(cur_clus);
-            FATPos fat_pos = getClusPosOnFAT(bpb_, cur_clus);
-            cur_clus = readFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset);
+        if (isValidCluster(fst_clus)) {
+            u32 cur_clus = fst_clus;
+            while (!isEndOfClusChain(cur_clus)) {
+                clus_chains.push_back(cur_clus);
+                FATPos fat_pos = getClusPosOnFAT(bpb_, cur_clus);
+                cur_clus = readFatEntry(fat_pos.fat_sec_num, fat_pos.fat_ent_offset);
+            }
         }
 
         return clus_chains;
