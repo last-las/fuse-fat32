@@ -60,238 +60,227 @@ public:
     }
 };
 
-TEST(FAT32fsTest, RootDir) {
-    {
-        auto root = filesystem->getRootDir();
-        ASSERT_EQ(root->ino(), fs::KRootDirIno);
-    }
-    filesystem->flush();
-}
-
-TEST(FAT32fsTest, GetFileByIno) {
-    GTEST_SKIP();
-}
-
-TEST(FAT32fsTest, OpenFileByIno) {
-    GTEST_SKIP();
-}
-
-TEST(FileTest, SimpleRead) {
-    {
-        char buff[100] = {0};
-        std::string simple_string = "hello world!";
-        auto wrt_sz = writeFile(simple_file1, simple_string.c_str(), simple_string.size(), 0);
-        auto root_dir = filesystem->getRootDir();
-        auto file = root_dir->lookupFile(simple_file1).value();
-
-        u32 rd_sz = file->read(buff, 100, 0);
-
-        ASSERT_EQ(wrt_sz, simple_string.size());
-        ASSERT_EQ(wrt_sz, rd_sz);
-        ASSERT_STREQ(buff, simple_string.c_str());
-    }
-
-    filesystem->flush();
-}
-
-TEST(FileTest, SimpleWrite) {
-    {
-        char buff[100] = {0};
-        char simple_string[] = "hello world!";
-        u32 str_len = strlen(simple_string);
-        auto root_dir = filesystem->getRootDir();
-        auto file = root_dir->lookupFile(simple_file2).value();
-        file->truncate(str_len);
-        u32 wrt_sz = file->write(simple_string, str_len, 0);
-        file->sync(true);
+class FsTest : public ::testing::Test {
+public:
+    ~FsTest() override {
+        /**
+         * flush() is called after each test case to make sure:
+         * 1. there is no cached file objects, which might influence the next test case if it invokes system calls
+         * before looking up a file object(e.g. create a file and then look up root dir);
+         *
+         * 2. the content modified by last test case has been written to the disk.
+         * */
         filesystem->flush();
-        TestFsEnv::reMount();
-
-        auto rd_sz = readFile(simple_file2, buff, 100, 0);
-        ASSERT_EQ(wrt_sz, str_len);
-        ASSERT_EQ(wrt_sz, rd_sz);
-        ASSERT_STREQ(buff, simple_string);
     }
+};
 
-    filesystem->flush();
+class FAT32fsTest : public FsTest {
+};
+
+class FileTest : public FsTest {
+};
+
+class DirTest : public FsTest {
+};
+
+
+TEST_F(FAT32fsTest, RootDir) {
+    auto root = filesystem->getRootDir();
+    ASSERT_EQ(root->ino(), fs::KRootDirIno);
 }
 
-TEST(FileTest, ExceedRW) {
-    {
-        auto root_dir = filesystem->getRootDir();
-        auto file = root_dir->lookupFile(simple_file1).value();
-        char buf;
-        u32 impossible_offset = 1000;
-        ASSERT_EQ(file->read(&buf, 1, impossible_offset), 0);
-        ASSERT_EQ(file->write(&buf, 1, impossible_offset), 1);
-    }
-
-    filesystem->flush();
+TEST_F(FAT32fsTest, GetFileByIno) {
+    GTEST_SKIP();
 }
 
-TEST(FileTest, LargeRead) {
+TEST_F(FAT32fsTest, OpenFileByIno) {
+    GTEST_SKIP();
+}
+
+TEST_F(FileTest, SimpleRead) {
+    char buff[100] = {0};
+    std::string simple_string = "hello world!";
+    auto wrt_sz = writeFile(simple_file1, simple_string.c_str(), simple_string.size(), 0);
+    auto root_dir = filesystem->getRootDir();
+    auto file = root_dir->lookupFile(simple_file1).value();
+
+    u32 rd_sz = file->read(buff, 100, 0);
+
+    ASSERT_EQ(wrt_sz, simple_string.size());
+    ASSERT_EQ(wrt_sz, rd_sz);
+    ASSERT_STREQ(buff, simple_string.c_str());
+}
+
+TEST_F(FileTest, SimpleWrite) {
+    char buff[100] = {0};
+    char simple_string[] = "hello world!";
+    u32 str_len = strlen(simple_string);
+    auto root_dir = filesystem->getRootDir();
+    auto file = root_dir->lookupFile(simple_file2).value();
+    file->truncate(str_len);
+    u32 wrt_sz = file->write(simple_string, str_len, 0);
+    file->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+
+    auto rd_sz = readFile(simple_file2, buff, 100, 0);
+    ASSERT_EQ(wrt_sz, str_len);
+    ASSERT_EQ(wrt_sz, rd_sz);
+    ASSERT_STREQ(buff, simple_string);
+}
+
+TEST_F(FileTest, ExceedRW) {
+    auto root_dir = filesystem->getRootDir();
+    auto file = root_dir->lookupFile(simple_file1).value();
+    char buf;
+    u32 impossible_offset = 1000;
+    ASSERT_EQ(file->read(&buf, 1, impossible_offset), 0);
+    ASSERT_EQ(file->write(&buf, 1, impossible_offset), 1);
+}
+
+TEST_F(FileTest, LargeRead) {
     u32 clus_size = fat32::bytesPerClus(filesystem->bpb());
     u32 clus_cnt = 10;
     std::vector<u8> clus_content(clus_size, 0xdb);
-    {
-        for (u32 i = 0; i < clus_cnt; i++) {
-            auto wrt_sz = writeFile(simple_file1, (const char *) &clus_content[0], clus_size, i * clus_size);
-            ASSERT_EQ(wrt_sz, clus_size);
-        }
-        auto root_dir = filesystem->getRootDir();
-        auto file = root_dir->lookupFile(simple_file1).value();
-
-        for (u32 i = 0; i < clus_cnt; i++) {
-            std::vector<u8> buffer(clus_size, 0);
-            auto read_sz = file->read((char *) &buffer[0], clus_size, i * clus_size);
-            ASSERT_EQ(read_sz, clus_size);
-            ASSERT_EQ(buffer, clus_content);
-        }
+    for (u32 i = 0; i < clus_cnt; i++) {
+        auto wrt_sz = writeFile(simple_file1, (const char *) &clus_content[0], clus_size, i * clus_size);
+        ASSERT_EQ(wrt_sz, clus_size);
     }
+    auto root_dir = filesystem->getRootDir();
+    auto file = root_dir->lookupFile(simple_file1).value();
 
-    filesystem->flush();
+    for (u32 i = 0; i < clus_cnt; i++) {
+        std::vector<u8> buffer(clus_size, 0);
+        auto read_sz = file->read((char *) &buffer[0], clus_size, i * clus_size);
+        ASSERT_EQ(read_sz, clus_size);
+        ASSERT_EQ(buffer, clus_content);
+    }
 }
 
-TEST(FileTest, LargeWrite) {
+TEST_F(FileTest, LargeWrite) {
     u32 clus_size = fat32::bytesPerClus(filesystem->bpb());
     u32 clus_cnt = 10;
     std::vector<u8> clus_content(clus_size, 0xef);
-    {
-        auto root_dir = filesystem->getRootDir();
-        auto file = root_dir->lookupFile(simple_file2).value();
-        for (u32 i = 0; i < clus_cnt; i++) {
-            auto wrt_sz = file->write((const char *) &clus_content[0], clus_size, i * clus_size);
-            ASSERT_EQ(wrt_sz, clus_size);
-        }
-        file->sync(true);
-        filesystem->flush();
-        TestFsEnv::reMount();
-
-        for (u32 i = 0; i < clus_cnt; i++) {
-            std::vector<u8> buffer(clus_size, 0);
-            auto read_sz = readFile(simple_file2, (char *) &buffer[0], clus_size, i * clus_size);
-            ASSERT_EQ(read_sz, clus_size);
-            ASSERT_EQ(buffer, clus_content);
-        }
+    auto root_dir = filesystem->getRootDir();
+    auto file = root_dir->lookupFile(simple_file2).value();
+    for (u32 i = 0; i < clus_cnt; i++) {
+        auto wrt_sz = file->write((const char *) &clus_content[0], clus_size, i * clus_size);
+        ASSERT_EQ(wrt_sz, clus_size);
     }
-
+    file->sync(true);
     filesystem->flush();
+    TestFsEnv::reMount();
+
+    for (u32 i = 0; i < clus_cnt; i++) {
+        std::vector<u8> buffer(clus_size, 0);
+        auto read_sz = readFile(simple_file2, (char *) &buffer[0], clus_size, i * clus_size);
+        ASSERT_EQ(read_sz, clus_size);
+        ASSERT_EQ(buffer, clus_content);
+    }
 }
 
-TEST(FileTest, SyncWithoutMeta) {
-    {
-        auto origin_stat = readFileStat(simple_file3).value();
+TEST_F(FileTest, SyncWithoutMeta) {
+    auto origin_stat = readFileStat(simple_file3).value();
 
-        // perform read and write to change meta info and then sync the disk.
-        const u32 buf_size = 123;
-        char tmp_buf[buf_size];
-        auto root_dir = filesystem->getRootDir();
-        auto file = root_dir->lookupFile(simple_file3).value();
-        ASSERT_EQ(file->write(tmp_buf, buf_size, 0), buf_size);
-        ASSERT_EQ(file->read(tmp_buf, buf_size, 0), buf_size);
-        file->sync(false);
-        filesystem->flush();
-        TestFsEnv::reMount();
-
-        auto changed_stat = readFileStat(simple_file3).value();
-        ASSERT_EQ(changed_stat.st_size, 0);
-        ASSERT_EQ(unixTsCmp(origin_stat.st_atim, changed_stat.st_atim), 0);
-        ASSERT_EQ(unixTsCmp(origin_stat.st_mtim, changed_stat.st_mtim), 0);
-        ASSERT_EQ(unixTsCmp(origin_stat.st_ctim, changed_stat.st_ctim), 0);
-
-        // recover
-        file->truncate(0);
-    }
-
+    // perform read and write to change meta info and then sync the disk.
+    const u32 buf_size = 123;
+    char tmp_buf[buf_size];
+    auto root_dir = filesystem->getRootDir();
+    auto file = root_dir->lookupFile(simple_file3).value();
+    ASSERT_EQ(file->write(tmp_buf, buf_size, 0), buf_size);
+    ASSERT_EQ(file->read(tmp_buf, buf_size, 0), buf_size);
+    file->sync(false);
     filesystem->flush();
+    TestFsEnv::reMount();
+
+    auto changed_stat = readFileStat(simple_file3).value();
+    ASSERT_EQ(changed_stat.st_size, 0);
+    ASSERT_EQ(unixTsCmp(origin_stat.st_atim, changed_stat.st_atim), 0);
+    ASSERT_EQ(unixTsCmp(origin_stat.st_mtim, changed_stat.st_mtim), 0);
+    ASSERT_EQ(unixTsCmp(origin_stat.st_ctim, changed_stat.st_ctim), 0);
+
+    // recover
+    file->truncate(0);
 }
 
-TEST(FileTest, SyncWithMeta) {
-    {
-        auto origin_stat = readFileStat(simple_file3).value();
-        sleep(2); // fat32 time field has two seconds deviation
+TEST_F(FileTest, SyncWithMeta) {
+    auto origin_stat = readFileStat(simple_file3).value();
+    sleep(2); // fat32 time field has two seconds deviation
 
-        // perform read and write to change meta info and then sync the disk.
-        const u32 buf_size = 321;
-        char tmp_buf[buf_size];
-        auto root_dir = filesystem->getRootDir();
-        auto file = root_dir->lookupFile(simple_file3).value();
-        ASSERT_EQ(file->write(tmp_buf, buf_size, 0), buf_size);
-        ASSERT_EQ(file->read(tmp_buf, buf_size, 0), buf_size);
-        file->sync(true);
-        filesystem->flush();
-        TestFsEnv::reMount();
-
-        auto changed_stat = readFileStat(simple_file3).value();
-        ASSERT_EQ(changed_stat.st_size, buf_size);
-        ASSERT_EQ(unixTsCmp(origin_stat.st_atim, changed_stat.st_atim), 0); // fat32 access time only records date
-        ASSERT_EQ(unixTsCmp(origin_stat.st_ctim, changed_stat.st_ctim), 0); // can not be changed
-        ASSERT_EQ(unixTsCmp(origin_stat.st_mtim, changed_stat.st_mtim), -1);
-
-        // recover
-        file->truncate(0);
-    }
-
+    // perform read and write to change meta info and then sync the disk.
+    const u32 buf_size = 321;
+    char tmp_buf[buf_size];
+    auto root_dir = filesystem->getRootDir();
+    auto file = root_dir->lookupFile(simple_file3).value();
+    ASSERT_EQ(file->write(tmp_buf, buf_size, 0), buf_size);
+    ASSERT_EQ(file->read(tmp_buf, buf_size, 0), buf_size);
+    file->sync(true);
     filesystem->flush();
+    TestFsEnv::reMount();
+
+    auto changed_stat = readFileStat(simple_file3).value();
+    ASSERT_EQ(changed_stat.st_size, buf_size);
+    ASSERT_EQ(unixTsCmp(origin_stat.st_atim, changed_stat.st_atim), 0); // fat32 access time only records date
+    ASSERT_EQ(unixTsCmp(origin_stat.st_ctim, changed_stat.st_ctim), 0); // can not be changed
+    ASSERT_EQ(unixTsCmp(origin_stat.st_mtim, changed_stat.st_mtim), -1);
+
+    // recover
+    file->truncate(0);
 }
 
 // todo:
-TEST(FileTest, SyncDir) {
+TEST_F(FileTest, SyncDir) {
     GTEST_SKIP();
 }
 
 // todo:
-TEST(FileTest, SyncDeleted) {
+TEST_F(FileTest, SyncDeleted) {
     GTEST_SKIP();
 }
 
-TEST(FileTest, Truncate) {
+TEST_F(FileTest, Truncate) {
     u32 clus_size = fat32::bytesPerClus(filesystem->bpb());
-    {
-        auto root = filesystem->getRootDir();
-        auto file = root->lookupFile(empty_file).value();
-        struct stat file_stat;
+    auto root = filesystem->getRootDir();
+    auto file = root->lookupFile(empty_file).value();
+    struct stat file_stat;
 
-        // expand too big to cause failure
-        u32 impossible_size = 4294967295; // U32::max
-        ASSERT_FALSE(file->truncate(impossible_size));
-        file->sync(true);
-        filesystem->flush();
-        TestFsEnv::reMount();
-        file_stat = readFileStat(empty_file).value();
-        ASSERT_EQ(file_stat.st_size, 0);
-
-        // expand
-        u32 expand_size = clus_size * 2 + 1;
-        file->truncate(expand_size);
-        file->sync(true);
-        filesystem->flush();
-        TestFsEnv::reMount();
-        file_stat = readFileStat(empty_file).value();
-        ASSERT_EQ(file_stat.st_size, expand_size);
-
-        // shrink
-        u32 shrink_size = clus_size;
-        file->truncate(shrink_size);
-        file->sync(true);
-        filesystem->flush();
-        TestFsEnv::reMount();
-        file_stat = readFileStat(empty_file).value();
-        ASSERT_EQ(file_stat.st_size, shrink_size);
-
-        // clear
-        file->truncate(0);
-        file->sync(true);
-        filesystem->flush();
-        TestFsEnv::reMount();
-        file_stat = readFileStat(empty_file).value();
-        ASSERT_EQ(file_stat.st_size, 0);
-    }
-
+    // expand too big to cause failure
+    u32 impossible_size = 4294967295; // U32::max
+    ASSERT_FALSE(file->truncate(impossible_size));
+    file->sync(true);
     filesystem->flush();
+    TestFsEnv::reMount();
+    file_stat = readFileStat(empty_file).value();
+    ASSERT_EQ(file_stat.st_size, 0);
+
+    // expand
+    u32 expand_size = clus_size * 2 + 1;
+    file->truncate(expand_size);
+    file->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+    file_stat = readFileStat(empty_file).value();
+    ASSERT_EQ(file_stat.st_size, expand_size);
+
+    // shrink
+    u32 shrink_size = clus_size;
+    file->truncate(shrink_size);
+    file->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+    file_stat = readFileStat(empty_file).value();
+    ASSERT_EQ(file_stat.st_size, shrink_size);
+
+    // clear
+    file->truncate(0);
+    file->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+    file_stat = readFileStat(empty_file).value();
+    ASSERT_EQ(file_stat.st_size, 0);
 }
 
-TEST(FileTest, SetTime) {
+TEST_F(FileTest, SetTime) {
     auto origin_stat = readFileStat(simple_file1).value();
 
     auto root = filesystem->getRootDir();
@@ -314,7 +303,7 @@ TEST(FileTest, SetTime) {
     ASSERT_EQ(unixTsCmp(origin_stat.st_mtim, after_stat.st_mtim), -1);
 }
 
-TEST(FileTest, MarkDeleted) {
+TEST_F(FileTest, MarkDeleted) {
     auto root = filesystem->getRootDir();
     // delete a file and directory
     auto file = root->lookupFile(simple_file2).value();
@@ -334,94 +323,82 @@ TEST(FileTest, MarkDeleted) {
     ASSERT_EQ(errno, ENOENT);
 }
 
-TEST(FileTest, RenameTargetExists) {
+TEST_F(FileTest, RenameTargetExists) {
     const char buf[] = "test rename function";
     u32 buf_size = strlen(buf);
-    {
-        auto root = filesystem->getRootDir();
-        auto old_file = root->lookupFile(simple_file1).value();
-        auto new_file = root->lookupFile(simple_file3).value();
-        old_file->truncate(buf_size);
-        ASSERT_EQ(old_file->write(buf, buf_size, 0), buf_size);
-        old_file->exchangeMetaData(new_file);
-        old_file->markDeleted();
+    auto root = filesystem->getRootDir();
+    auto old_file = root->lookupFile(simple_file1).value();
+    auto new_file = root->lookupFile(simple_file3).value();
+    old_file->truncate(buf_size);
+    ASSERT_EQ(old_file->write(buf, buf_size, 0), buf_size);
+    old_file->exchangeMetaData(new_file);
+    old_file->markDeleted();
 
-        root->sync(true);
-        new_file->sync(true);
-        filesystem->flush();
-        TestFsEnv::reMount();
-
-        assert_file_content(simple_file3, buf, buf_size);
-        assert_file_non_exist(simple_file1);
-    }
-
+    root->sync(true);
+    new_file->sync(true);
     filesystem->flush();
+    TestFsEnv::reMount();
+
+    assert_file_content(simple_file3, buf, buf_size);
+    assert_file_non_exist(simple_file1);
 }
 
-TEST(DirTest, crtShortFile) {
+TEST_F(DirTest, crtShortFile) {
     const char non_exist_short_name[] = "crtFile.txt";
     const char buf[] = "create file tests";
     u32 buf_size = strlen(buf);
-    {
-        auto root = filesystem->getRootDir();
-        auto short_file = root->crtFile(non_exist_short_name).value();
-        ASSERT_EQ(short_file->write(buf, buf_size, 0), buf_size);
-        root->sync(false);
-        short_file->sync(true);
-        filesystem->flush();
-        TestFsEnv::reMount();
-
-        assert_file_content(non_exist_short_name, buf, buf_size);
-    }
-
+    auto root = filesystem->getRootDir();
+    auto short_file = root->crtFile(non_exist_short_name).value();
+    ASSERT_EQ(short_file->write(buf, buf_size, 0), buf_size);
+    root->sync(false);
+    short_file->sync(true);
     filesystem->flush();
+    TestFsEnv::reMount();
+
+    assert_file_content(non_exist_short_name, buf, buf_size);
 }
 
-TEST(DirTest, crtLongFile) {
+TEST_F(DirTest, crtLongFile) {
     const char non_exist_long_name[] = "create_file_test_non_exist_long_name.txt";
     const char buf[] = "create file tests";
     u32 buf_size = strlen(buf);
-    {
-        auto root = filesystem->getRootDir();
-        auto long_file = root->crtFile(non_exist_long_name).value();
-        ASSERT_EQ(long_file->write(buf, buf_size, 0), buf_size);
-        long_file->sync(true);
-        root->sync(true);
-        filesystem->flush();
-        TestFsEnv::reMount();
-
-        assert_file_content(non_exist_long_name, buf, buf_size);
-    }
-
+    auto root = filesystem->getRootDir();
+    auto long_file = root->crtFile(non_exist_long_name).value();
+    ASSERT_EQ(long_file->write(buf, buf_size, 0), buf_size);
+    long_file->sync(true);
+    root->sync(true);
     filesystem->flush();
+    TestFsEnv::reMount();
+
+    assert_file_content(non_exist_long_name, buf, buf_size);
 }
 
 // DirTest::crtFile must pass before running this.
-TEST(FileTest, RenameTargetNotExists) {
+TEST_F(FileTest, RenameTargetNotExists) {
     GTEST_SKIP();
 }
 
-TEST(DirTest, crtDir) {
+TEST_F(DirTest, crtDir) {
     GTEST_SKIP();
 }
 
-TEST(DirTest, DelFile) {
+TEST_F(DirTest, DelFile) {
     GTEST_SKIP();
 }
 
-TEST(DirTest, ListDir) {
+TEST_F(DirTest, ListDir) {
     GTEST_SKIP();
 }
 
-TEST(DirTest, Lookup) {
+TEST_F(DirTest, Lookup) {
     GTEST_SKIP();
 }
 
-TEST(DirTest, Iterate) {
+TEST_F(DirTest, Iterate) {
     GTEST_SKIP();
 }
 
-TEST(DirTest, JudgeEmpty) {
+TEST_F(DirTest, JudgeEmpty) {
     GTEST_SKIP();
 }
 
