@@ -403,7 +403,7 @@ TEST_F(FileTest, RenameTargetNotExists) {
     assert_file_non_exist(exist_name);
 }
 
-TEST_F(DirTest, crtDir) {
+TEST_F(DirTest, CrtDir) {
     const char new_dir_name[] = "crtDir_new_name";
     auto root = filesystem->getRootDir();
     auto sub_dir = root->crtDir(new_dir_name).value();
@@ -415,8 +415,60 @@ TEST_F(DirTest, crtDir) {
     assert_dir_exist(new_dir_name);
 }
 
+TEST_F(DirTest, CrtDirAndWrite) {
+    const char new_dir_name[] = "crtDirAndWrite_new_name";
+    const char new_file_name[] = "crtDirAndWrite_new_file.txt";
+    const char buffer[] = "hello world!";
+    const u32 buf_sz = strlen(buffer);
+
+    {
+        auto root = filesystem->getRootDir();
+        auto sub_dir = root->crtDir(new_dir_name).value();
+        auto file = sub_dir->crtFile(new_file_name).value();
+        ASSERT_EQ(file->write(buffer, buf_sz, 0), buf_sz);
+    }
+    filesystem->flush();
+    TestFsEnv::reMount();
+
+    std::string path_to_new_file = util::format_string("%s/%s", new_dir_name, new_file_name);
+    assert_file_content(path_to_new_file.c_str(), buffer, buf_sz);
+}
+
+// todo: fix crt multiple..
 TEST_F(DirTest, DelFile) {
-    GTEST_SKIP();
+    const char new_dir[] = "DelFile_new_dir";
+    const char new_file_prefix[] = "DelFile_new_file_";
+    int file_num = 1;
+    auto root = filesystem->getRootDir();
+    auto sub_dir = root->crtDir(new_dir).value();
+
+    // create files
+    for (u32 i = 0; i < file_num; i++) {
+        auto new_file_name = util::format_string("%s%s", new_file_prefix, std::to_string(i).c_str());
+        ASSERT_TRUE(sub_dir->crtFile(new_file_name.c_str()).has_value());
+    }
+    sub_dir->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+    // make sure exists
+    for (int i = 0; i < file_num; i++) {
+        auto new_file_path = util::format_string("%s/%s%s", new_dir, new_file_prefix, std::to_string(i).c_str());
+        assert_file_exist(new_file_path.c_str());
+    }
+
+    // delete
+    for (int i = file_num - 1; i >= 0; i--) {
+        auto new_file_name = util::format_string("%s%s", new_file_prefix, std::to_string(i).c_str());
+        ASSERT_TRUE(sub_dir->delFile(new_file_name.c_str()));
+    }
+    sub_dir->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+    // check the file is surely deleted on disk
+    for (int i = 0; i < file_num; i++) {
+        auto new_file_path = util::format_string("%s/%s%s", new_dir, new_file_prefix, std::to_string(i).c_str());
+        assert_file_non_exist(new_file_path.c_str());
+    }
 }
 
 TEST_F(DirTest, ListDir) {

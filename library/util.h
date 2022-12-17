@@ -4,6 +4,8 @@
 #include <list>
 #include <optional>
 #include <unordered_map>
+#include <initializer_list>
+#include <memory>
 
 // todo: move to namespace util
 typedef unsigned long long u64;
@@ -113,6 +115,17 @@ namespace util {
     void dumpObj(void *stuff, u32 size) noexcept;
 
 #define DUMP_OBJECT(x) util::dump(&(x), sizeof(x))
+
+    // from https://inversepalindrome.com/blog/how-to-format-a-string-in-cpp.
+    template<typename... Args>
+    std::string format_string(const std::string &format, Args... args) {
+        const auto size = std::snprintf(nullptr, 0, format.c_str(), args...) + 1;
+        const auto buffer = std::make_unique<char[]>(size);
+
+        std::snprintf(buffer.get(), size, format.c_str(), args...);
+
+        return std::string(buffer.get(), buffer.get() + size - 1);
+    }
 } // namespace util
 
 #endif //STUPID_FAT32_UTIL_H

@@ -530,9 +530,11 @@ namespace fs {
             if (!fat32::isLongDirEntry(l_dir_entry)) { // find a short dir entry, judge whether it's the target
                 s_dir_entry = fat32::castLongDirEntryToShort(l_dir_entry);
                 auto read_short_name = fat32::readShortEntryName(s_dir_entry);
-                auto basis_name = fat32::genBasisNameFromShort(read_short_name);
 
-                assert(fat32::chkSum(basis_name) == chk_sum);
+                if (target_entry_cnt > 1) { // the short dir entry has related long dir entries, check chk_sum
+                    auto basis_name = fat32::genBasisNameFromShort(read_short_name);
+                    assert(fat32::chkSum(basis_name) == chk_sum);
+                }
 
                 if ((has_l_entry && read_long_name == utf16_name)
                     || (!has_l_entry && read_short_name == gbk_name)) { // the lookup target is found
@@ -569,6 +571,7 @@ namespace fs {
             if (fat32::isLstEmptyDirEntry(dir_entry)) {
                 return true;
             }
+            n++;
         }
 
         return true;
