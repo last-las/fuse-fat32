@@ -9,6 +9,7 @@ std::unique_ptr<fs::FAT32fs> filesystem;
 const char simple_file1[] = "short1.txt";
 const char simple_file2[] = "short2.txt";
 const char simple_file3[] = "short3.txt";
+const char simple_file4[] = "short4.txt";
 const char empty_file[] = "empty.txt";
 const char simple_dir1[] = "simple1";
 const char simple_dir2[] = "simple2";
@@ -33,6 +34,7 @@ public:
         crtFileOrExist(simple_file1);
         crtFileOrExist(simple_file2);
         crtFileOrExist(simple_file3);
+        crtFileOrExist(simple_file4);
         crtFileOrExist(empty_file);
         crtFileOrExist(long_name_file);
         crtDirOrExist(simple_dir1);
@@ -328,6 +330,8 @@ TEST_F(FileTest, MarkDeleted) {
 TEST_F(FileTest, RenameTargetExists) {
     const char buf[] = "test rename function";
     u32 buf_size = strlen(buf);
+
+    // rename an exist file to another exist file
     auto root = filesystem->getRootDir();
     auto old_file = root->lookupFile(simple_file1).value();
     auto new_file = root->lookupFile(simple_file3).value();
@@ -377,7 +381,26 @@ TEST_F(DirTest, crtLongFile) {
 
 // DirTest::crtFile must pass before running this.
 TEST_F(FileTest, RenameTargetNotExists) {
-    GTEST_SKIP();
+    const char *exist_name = simple_file4;
+    const char non_exist_name[] = "rename_non_exists_file.txt";
+    const char buf[] = "test rename function";
+    u32 buf_size = strlen(buf);
+
+    // rename an exist file to a non exist file
+    auto root = filesystem->getRootDir();
+    auto old_file = root->lookupFile(exist_name).value();
+    auto new_file = root->crtFile(non_exist_name).value();
+    ASSERT_EQ(old_file->write(buf, buf_size, 0), buf_size);
+    old_file->exchangeMetaData(new_file);
+    old_file->markDeleted();
+
+    root->sync(true);
+    new_file->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+
+    assert_file_content(non_exist_name, buf, buf_size);
+    assert_file_non_exist(exist_name);
 }
 
 TEST_F(DirTest, crtDir) {
