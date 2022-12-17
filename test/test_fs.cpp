@@ -232,16 +232,6 @@ TEST_F(FileTest, SyncWithMeta) {
     file->truncate(0);
 }
 
-// todo:
-TEST_F(FileTest, SyncDir) {
-    GTEST_SKIP();
-}
-
-// todo:
-TEST_F(FileTest, SyncDeleted) {
-    GTEST_SKIP();
-}
-
 TEST_F(FileTest, Truncate) {
     u32 clus_size = fat32::bytesPerClus(filesystem->bpb());
     auto root = filesystem->getRootDir();
@@ -438,7 +428,7 @@ TEST_F(DirTest, CrtDirAndWrite) {
 TEST_F(DirTest, DelFile) {
     const char new_dir[] = "DelFile_new_dir";
     const char new_file_prefix[] = "DelFile_new_file_";
-    int file_num = 1;
+    int file_num = 20;
     auto root = filesystem->getRootDir();
     auto sub_dir = root->crtDir(new_dir).value();
 
@@ -472,20 +462,52 @@ TEST_F(DirTest, DelFile) {
 }
 
 TEST_F(DirTest, ListDir) {
-    GTEST_SKIP();
-}
+    const char new_dir[] = "List_dir";
+    const char new_file_prefix[] = "List_dir_new_file_";
+    int file_num = 20;
 
-TEST_F(DirTest, Lookup) {
-    GTEST_SKIP();
-}
+    // create files
+    create_dir(new_dir);
+    for (u32 i = 0; i < file_num; i++) {
+        auto new_file_path = util::format_string("%s/%s%s", new_dir, new_file_prefix, std::to_string(i).c_str());
+        create_file(new_file_path.c_str());
+    }
+    sync();
 
-TEST_F(DirTest, Iterate) {
-    GTEST_SKIP();
+    auto root = filesystem->getRootDir();
+    auto sub_dir = std::dynamic_pointer_cast<fs::Directory>(root->lookupFile(new_dir).value());
+    u64 entry_off = 0;
+    for (u32 i = 0; i < file_num + 2; i++) {
+        auto file = sub_dir->lookupFileByIndex(entry_off).value();
+        if (i == 0) {
+            ASSERT_STREQ(".", file->name());
+        } else if (i == 1) {
+            ASSERT_STREQ("..", file->name());
+        } else {
+            auto file_name = util::format_string("%s%s", new_file_prefix, std::to_string(i - 2).c_str());
+            ASSERT_STREQ(file_name.c_str(), file->name());
+        }
+    }
+    ASSERT_FALSE(sub_dir->lookupFileByIndex(entry_off).has_value());
 }
 
 TEST_F(DirTest, JudgeEmpty) {
-    GTEST_SKIP();
+    const char empty_dir[] = "empty";
+    const char non_empty_dir[] = "non_empty";
+    crtDirOrExist(empty_dir);
+    crtDirOrExist(non_empty_dir);
+    crtFileOrExist(util::format_string("%s/%s", non_empty_dir, "file.txt").c_str());
+    sync();
+
+    auto root_dir = filesystem->getRootDir();
+    auto empty = std::dynamic_pointer_cast<fs::Directory>(root_dir->lookupFile(empty_dir).value());
+    auto non_empty = std::dynamic_pointer_cast<fs::Directory>(root_dir->lookupFile(non_empty_dir).value());
+
+    ASSERT_FALSE(root_dir->isEmpty());
+    ASSERT_TRUE(empty->isEmpty());
+    ASSERT_FALSE(non_empty->isEmpty());
 }
+
 
 int main(int argc, char **argv) {
     testing::AddGlobalTestEnvironment(new TestFsEnv);

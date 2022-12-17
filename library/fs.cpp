@@ -419,7 +419,11 @@ namespace fs {
     }
 
     bool Directory::isEmpty() noexcept {
-        return isLstNonEmptyEntry(-1);
+        if (ino() == KRootDirIno) {
+            return isLstNonEmptyEntry(-1);
+        } else { // skip "." and ".." for other directories
+            return isLstNonEmptyEntry(1);
+        }
     }
 
     bool Directory::isDir() noexcept {
