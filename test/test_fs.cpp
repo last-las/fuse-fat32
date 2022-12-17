@@ -404,7 +404,15 @@ TEST_F(FileTest, RenameTargetNotExists) {
 }
 
 TEST_F(DirTest, crtDir) {
-    GTEST_SKIP();
+    const char new_dir_name[] = "crtDir_new_name";
+    auto root = filesystem->getRootDir();
+    auto sub_dir = root->crtDir(new_dir_name).value();
+    root->sync(false);
+    sub_dir->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+
+    assert_dir_exist(new_dir_name);
 }
 
 TEST_F(DirTest, DelFile) {

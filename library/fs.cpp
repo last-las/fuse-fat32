@@ -120,7 +120,7 @@ namespace fs {
 
     bool File::truncate(u32 length) noexcept {
         u32 clus_num = length == 0 ? 0 : ((length - 1) / fat32::bytesPerClus(fs_.bpb()) + 1);
-        if (fs_.fat().resize(fst_clus_, clus_num)) {
+        if (fs_.fat().resize(fst_clus_, clus_num, isDir())) {
             clus_chain_ = std::nullopt;
             if (!isDir()) {
                 file_sz_ = length;
@@ -281,6 +281,17 @@ namespace fs {
         auto result = crtFileInner(name, true);
         if (result.has_value()) {
             auto dir_obj = std::dynamic_pointer_cast<Directory>(result.value());
+            // alloc a cluster
+            auto bytes_per_clus = fat32::bytesPerClus(fs_.bpb());
+            if (!dir_obj->truncate(bytes_per_clus)) { // no enough space
+                assert(delFile(name));
+                return std::nullopt;
+            }
+            // create dot and dotdot entries
+            auto dot_entry = fat32::mkDotShortDirEntry(crt_time_, dir_obj->fst_clus_);
+            auto dot_dot_entry = fat32::mkDotDotShortDirEntry(crt_time_, fst_clus_);
+            assert(dir_obj->writeDirEntry(0, fat32::castShortDirEntryToLong(dot_entry)));
+            assert(dir_obj->writeDirEntry(1, fat32::castShortDirEntryToLong(dot_dot_entry)));
             return {dir_obj};
         } else {
             return std::nullopt;

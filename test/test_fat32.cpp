@@ -319,11 +319,11 @@ TEST(FAT32Test, Resize) {
 
     u32 fst_clus = fat.allocClus(5).value()[0];
     // shrink
-    ASSERT_TRUE(fat.resize(fst_clus, 2));
+    ASSERT_TRUE(fat.resize(fst_clus, 2, false));
     expect_result = {3, 4};
     ASSERT_EQ(fat.readClusChains(fst_clus), expect_result);
     // grow
-    ASSERT_TRUE(fat.resize(fst_clus, 7));
+    ASSERT_TRUE(fat.resize(fst_clus, 7, false));
     expect_result = {3, 4, 5, 6, 7, 8, 9};
     ASSERT_EQ(fat.readClusChains(fst_clus), expect_result);
 
@@ -335,16 +335,16 @@ TEST(FAT32Test, Resize) {
     fst_clus = 0;
     {
         // resize 0
-        ASSERT_TRUE(fat.resize(fst_clus, 0));
+        ASSERT_TRUE(fat.resize(fst_clus, 0, false));
         ASSERT_EQ(fst_clus, 0);
         ASSERT_TRUE(isOriginFAT());
 
         // resize non-zero
-        ASSERT_TRUE(fat.resize(fst_clus, 5));
+        ASSERT_TRUE(fat.resize(fst_clus, 5, false));
         ASSERT_EQ(fst_clus, 3);
 
         // resize 0 again
-        ASSERT_TRUE(fat.resize(fst_clus, 0));
+        ASSERT_TRUE(fat.resize(fst_clus, 0, false));
         ASSERT_EQ(fst_clus, 0);
         ASSERT_TRUE(isOriginFAT());
     }

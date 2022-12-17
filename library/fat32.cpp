@@ -224,7 +224,7 @@ namespace fat32 {
         return long_dir_entry;
     }
 
-    ShortDirEntry mkShortDirEntry(BasisName &basis_name, bool is_dir) {
+    ShortDirEntry mkShortDirEntry(const BasisName &basis_name, bool is_dir) {
         fat32::FatTimeStamp2 dos_ts2 = getCurDosTs2();
         fat32::FatTimeStamp dos_ts = dos_ts2.ts;
 
@@ -239,6 +239,26 @@ namespace fat32 {
         setFstClusNo(shortDirEntry, 0); // empty space
 
         return shortDirEntry;
+    }
+
+    ShortDirEntry mkDotShortDirEntry(fat32::FatTimeStamp2 fat_ts2, u32 fst_clus) {
+        BasisName dot_basis_name{".       ", "   "};
+        auto dot_dir_entry = mkShortDirEntry(dot_basis_name, true);
+        dot_dir_entry.crt_ts2 = fat_ts2;
+        dot_dir_entry.lst_acc_date = fat_ts2.ts.date;
+        dot_dir_entry.wrt_ts = fat_ts2.ts;
+        setFstClusNo(dot_dir_entry, fst_clus);
+        return dot_dir_entry;
+    }
+
+    ShortDirEntry mkDotDotShortDirEntry(fat32::FatTimeStamp2 fat_ts2, u32 fst_clus) {
+        BasisName dot_basis_name{"..      ", "   "};
+        auto dot_dir_entry = mkShortDirEntry(dot_basis_name, true);
+        dot_dir_entry.crt_ts2 = fat_ts2;
+        dot_dir_entry.lst_acc_date = fat_ts2.ts.date;
+        dot_dir_entry.wrt_ts = fat_ts2.ts;
+        setFstClusNo(dot_dir_entry, fst_clus);
+        return dot_dir_entry;
     }
 
     u8 chkSum(BasisName &basis_name) {
@@ -433,7 +453,7 @@ namespace fat32 {
         return clus_chains;
     }
 
-    bool FAT::resize(u32 &fst_clus, u32 clus_num) noexcept {
+    bool FAT::resize(u32 &fst_clus, u32 clus_num, bool clear) noexcept {
         FATPos fat_pos;
         u32 pre_clus = fst_clus;
         u32 cur_clus = fst_clus;
@@ -461,6 +481,9 @@ namespace fat32 {
                 return false;
             }
             auto clus_chain = result.value();
+            if (clear) {
+                clearClusChain(clus_chain);
+            }
             u32 alloc_fst_clus = clus_chain[0];
             if (!isValidCluster(fst_clus)) {
                 fst_clus = alloc_fst_clus;
@@ -483,5 +506,19 @@ namespace fat32 {
     u32 FAT::readFatEntry(u32 sec_no, u32 fat_ent_offset) noexcept {
         auto sector = this->device_->readSector(sec_no).value();
         return readFATClusEntryVal((const u8 *) sector->read_ptr(0), fat_ent_offset);
+    }
+
+    void FAT::clearClusChain(const std::vector<u32> &clus_chain) noexcept {
+        u8 sec_per_clus = bpb_.BPB_sec_per_clus;
+        for (const auto &cluster_no: clus_chain) {
+            assert(isValidCluster(cluster_no));
+            u32 fst_sec = getFirstSectorOfCluster(bpb_, cluster_no);
+
+            for (u32 i = fst_sec; i < fst_sec + sec_per_clus; i++) {
+                auto sector = device_->readSector(i).value();
+                auto *wrt_ptr = sector->write_ptr(0);
+                memset(wrt_ptr, 0, bpb_.BPB_bytes_per_sec);
+            }
+        }
     }
 }

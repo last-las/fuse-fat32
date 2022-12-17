@@ -237,6 +237,10 @@ namespace fat32 {
         return *(ShortDirEntry *) &l_dir_entry;
     }
 
+    inline LongDirEntry &castShortDirEntryToLong(ShortDirEntry &s_dir_entry) {
+        return *(LongDirEntry *) &s_dir_entry;
+    }
+
     LongDirEntry mkLongDirEntry(bool is_lst, u8 ord, u8 chk_sum, util::string_utf16 &name, u32 off);
 
     inline bool isEmptyDirEntry(LongDirEntry &dir_entry) {
@@ -261,7 +265,11 @@ namespace fat32 {
         char extension[3 + 1];
     }__attribute__((packed));
 
-    ShortDirEntry mkShortDirEntry(BasisName &basis_name, bool is_dir);
+    ShortDirEntry mkShortDirEntry(const BasisName &basis_name, bool is_dir);
+
+    ShortDirEntry mkDotShortDirEntry(fat32::FatTimeStamp2 fat_ts2, u32 fst_clus);
+
+    ShortDirEntry mkDotDotShortDirEntry(fat32::FatTimeStamp2 fat_ts2, u32 fst_clus);
 
     u8 chkSum(BasisName &basis_name);
 
@@ -287,7 +295,11 @@ namespace fat32 {
         // If fst_clus is invalid, it may be written with a valid cluster number;
         // If clus_num is zero, fst_clus will be written with a zero;
         // In other situation, fst_clus won't be changed.
-        bool resize(u32 &fst_clus, u32 clus_num) noexcept;
+        //
+        // If clear is set, the new allocated clusters will be set zero.
+        bool resize(u32 &fst_clus, u32 clus_num, bool clear) noexcept;
+
+        void clearClusChain(const std::vector<u32> &clus_chain) noexcept;
 
         // todo: perform writing on all the fats
         void writeFatEntry(u32 sec_no, u32 fat_ent_offset, u32 val) noexcept;
@@ -304,6 +316,7 @@ namespace fat32 {
         std::optional<u64> avail_clus_cnt_;
         std::shared_ptr<device::Device> device_;
 
+        // todo: rename
         u32 end_sec_no() const { return this->start_sec_no_ + this->fat_sec_num_; }
 
         void inc_avail_cnt(u64 no) noexcept;
