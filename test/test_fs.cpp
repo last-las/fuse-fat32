@@ -424,7 +424,30 @@ TEST_F(DirTest, CrtDirAndWrite) {
     assert_file_content(path_to_new_file.c_str(), buffer, buf_sz);
 }
 
-// todo: fix crt multiple..
+
+TEST_F(DirTest, CrtDirMultiple) {
+    const char new_dir[] = "crt_multiple";
+    const char new_file_prefix[] = "crt_multiple_file";
+    auto root = filesystem->getRootDir();
+    auto sub_dir = root->crtDir(new_dir).value();
+    u32 file_num = sub_dir->file_sz() / fat32::KDirEntrySize;
+
+    // create files
+    for (u32 i = 0; i < file_num; i++) {
+        auto new_file_name = util::format_string("%s%s", new_file_prefix, std::to_string(i).c_str());
+        ASSERT_TRUE(sub_dir->crtFile(new_file_name.c_str()).has_value());
+    }
+    sub_dir->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+
+    for (int i = 0; i < file_num; i++) {
+        auto new_file_path = util::format_string("%s/%s%s", new_dir, new_file_prefix, std::to_string(i).c_str());
+        assert_file_exist(new_file_path.c_str());
+    }
+}
+
+
 TEST_F(DirTest, DelFile) {
     const char new_dir[] = "DelFile_new_dir";
     const char new_file_prefix[] = "DelFile_new_file_";

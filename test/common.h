@@ -338,7 +338,7 @@ public:
         }
         rm_loop_file(loop_name);
         rmDir(mnt_point);
-        // todo: rmFile(regular_file);
+        rmFile(regular_file);
     }
 
 private:
