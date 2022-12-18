@@ -20,6 +20,8 @@ namespace fs {
         File(u32 parent_clus, u32 fst_entry_num, FAT32fs &fs, std::string name,
              const fat32::ShortDirEntry *meta_entry) noexcept;
 
+        static std::optional<std::shared_ptr<File>> fromIno(u64 ino, FAT32fs &fs) noexcept;
+
         /**
          * Return a null-terminated filename pointer.
          * */
@@ -74,7 +76,7 @@ namespace fs {
         /**
          * Iterate over each directory entry of the cluster chain, return false when chain_index exceeds.
          * */
-        bool iterClusChainEntry(std::vector<u32> &clus_chain, u32 &chain_index, u32 &sec_index, u32 &sec_off) noexcept;
+        static bool iterClusChainEntry(std::vector<u32> &clus_chain, u32 &chain_index, u32 &sec_index, u32 &sec_off, fat32::BPB& bpb) noexcept;
 
         u32 file_sz_;
         /**

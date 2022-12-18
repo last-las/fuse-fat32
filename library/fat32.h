@@ -243,7 +243,7 @@ namespace fat32 {
 
     LongDirEntry mkLongDirEntry(bool is_lst, u8 ord, u8 chk_sum, util::string_utf16 &name, u32 off);
 
-    inline bool isEmptyDirEntry(LongDirEntry &dir_entry) {
+    inline bool isEmptyDirEntry(const LongDirEntry &dir_entry) {
         return dir_entry.ord == 0x00 || dir_entry.ord == 0xE5;
     }
 

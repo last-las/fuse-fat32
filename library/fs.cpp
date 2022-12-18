@@ -17,6 +17,63 @@ namespace fs {
               fs_{fs}, name_{std::move(name)}, crt_time_{meta_entry->crt_ts2}, acc_date_{meta_entry->lst_acc_date},
               wrt_time_{meta_entry->wrt_ts}, file_sz_{meta_entry->file_sz} {}
 
+    std::optional<std::shared_ptr<File>> File::fromIno(u64 ino, FAT32fs &fs) noexcept {
+        u32 parent_clus = ino >> 32;
+        u32 fst_entry_num = ino & 0xffffffff;
+        u32 offset_of_parent_clus = fst_entry_num * fat32::KDirEntrySize;
+        u32 sec_index = offset_of_parent_clus / fs.bpb().BPB_bytes_per_sec;
+        u32 sec_off = offset_of_parent_clus % fs.bpb().BPB_bytes_per_sec;
+        auto clus_chain = fs.fat().readClusChains(parent_clus);
+        assert(!clus_chain.empty());
+        u32 chain_index = 0;
+
+        util::string_utf16 long_name_utf16;
+        bool fst_dir_entry = true;
+        u8 chk_sum;
+        std::optional<fat32::ShortDirEntry> result;
+
+        do {
+            u32 sec_no = fat32::getFirstSectorOfCluster(fs.bpb(), clus_chain[chain_index]) + sec_index;
+            auto sec = fs.device()->readSector(sec_no).value();
+            auto *long_dir_entry = (const fat32::LongDirEntry *) sec->read_ptr(sec_off);
+            if (fat32::isEmptyDirEntry(*long_dir_entry)) { // the ino is invalid now, return null directly
+                return std::nullopt;
+            }
+            if ((long_dir_entry->attr & fat32::KAttrLongNameMask) != fat32::KAttrLongName) { // find short dir entry
+                result = {*(fat32::ShortDirEntry *) &long_dir_entry};
+                break;
+            }
+
+            // find a long dir entry, record name and check CRC
+            long_name_utf16.insert(0, fat32::readLongEntryName(*long_dir_entry));
+            if (!fst_dir_entry) {
+                assert(fat32::isValidLongDirEntry(*long_dir_entry, chk_sum));
+            } else {
+                fst_dir_entry = false;
+                chk_sum = long_dir_entry->chk_sum;
+            }
+        } while (iterClusChainEntry(clus_chain, chain_index, sec_index, sec_off, fs.bpb()));
+
+        assert(result.has_value());
+        auto short_dir_entry = result.value();
+        util::string_gbk short_name_gbk = fat32::readShortEntryName(short_dir_entry);
+        std::string file_name;
+        if (fst_dir_entry) { // only one short dir entry, no long dir entries are found
+            assert(long_name_utf16.length() == 0);
+            file_name = util::gbkToUtf8(short_name_gbk).value();
+        } else {
+            auto basis_name = fat32::genBasisNameFromShort(short_name_gbk);
+            assert(fat32::chkSum(basis_name) == chk_sum);
+            file_name = util::utf16ToUtf8(long_name_utf16).value();
+        }
+
+        if (fat32::isDirectory(short_dir_entry)) {
+            return std::make_shared<Directory>(parent_clus, fst_entry_num, fs, file_name, &short_dir_entry);
+        } else {
+            return std::make_shared<File>(parent_clus, fst_entry_num, fs, file_name, &short_dir_entry);
+        }
+    }
+
     const char *File::name() noexcept {
         return this->name_.c_str();
     }
@@ -98,7 +155,7 @@ namespace fs {
                     fat32::KAttrLongName) { // find fst short dir entry
                     break;
                 }
-            } while (iterClusChainEntry(p_clus_chain, clus_i, sec_i, sec_off));
+            } while (iterClusChainEntry(p_clus_chain, clus_i, sec_i, sec_off, fs_.bpb()));
 
             // sync meta info
             auto short_dir_entry = (fat32::ShortDirEntry *) sec->write_ptr(sec_off);
@@ -166,7 +223,7 @@ namespace fs {
             if ((attr & fat32::KAttrLongNameMask) != fat32::KAttrLongName) { // last dir entry is found
                 break;
             }
-        } while (iterClusChainEntry(p_clus_chain, clus_i, sec_i, sec_off));
+        } while (iterClusChainEntry(p_clus_chain, clus_i, sec_i, sec_off, fs_.bpb()));
 
         // remove clus chain
         fs_.fat().freeClus(fst_clus_);
@@ -238,14 +295,14 @@ namespace fs {
     }
 
     bool File::iterClusChainEntry(std::vector<u32> &clus_chain, u32 &chain_index, u32 &sec_index,
-                                  u32 &sec_off) noexcept {
-        assert(sec_off < fs_.bpb().BPB_bytes_per_sec);
+                                  u32 &sec_off, fat32::BPB &bpb) noexcept {
+        assert(sec_off < bpb.BPB_bytes_per_sec);
 
         sec_off += sizeof(fat32::LongDirEntry);
-        if (sec_off == fs_.bpb().BPB_bytes_per_sec) {
+        if (sec_off == bpb.BPB_bytes_per_sec) {
             sec_off = 0;
             sec_index += 1;
-            if (sec_index == fs_.bpb().BPB_sec_per_clus) {
+            if (sec_index == bpb.BPB_sec_per_clus) {
                 sec_index = 0;
                 chain_index += 1;
                 if (chain_index >= clus_chain.size()) {
@@ -627,7 +684,7 @@ namespace fs {
     }
 
     std::optional<shared_ptr<File>> FAT32fs::getFileByIno(u64 ino) noexcept {
-        assert(false);
+        return cached_lookup_files_.get(ino);
     }
 
     optional<shared_ptr<File>> FAT32fs::getFileByName(const char *name) noexcept {
