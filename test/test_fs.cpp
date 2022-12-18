@@ -116,7 +116,7 @@ TEST_F(FAT32fsTest, GetDirByIno) {
     ASSERT_FALSE(filesystem->getDirByIno(file_ino).has_value());
 }
 
-// todo: fix: lookupFile has a same name bug!
+// todo: the deletedFileFrom cache might be wrong!
 
 TEST_F(FAT32fsTest, OpenFileByIno) {
     GTEST_SKIP();
@@ -552,6 +552,19 @@ TEST_F(DirTest, JudgeEmpty) {
     ASSERT_FALSE(non_empty->isEmpty());
 }
 
+TEST_F(DirTest, LookupSameName) {
+    const char file_name[] = "LookupSameName.txt";
+    const char dir_name[] = "LookupSameName_dir";
+
+    auto root = filesystem->getRootDir();
+    auto dir = root->crtDir(dir_name).value();
+    auto file_under_root = root->crtFile(file_name).value();
+    auto file_under_subdir = dir->crtFile(file_name).value();
+
+    auto file_from_cache = root->lookupFile(file_name).value();
+    ASSERT_EQ(file_under_root.get(), file_from_cache.get());
+    ASSERT_NE(file_under_subdir.get(), file_from_cache.get());
+}
 
 int main(int argc, char **argv) {
     testing::AddGlobalTestEnvironment(new TestFsEnv);

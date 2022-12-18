@@ -229,7 +229,7 @@ namespace fs {
         fs_.fat().freeClus(fst_clus_);
 
         // remove from fs cache
-        fs_.rmFileFromCacheByName(name());
+        fs_.rmFileFromCacheByIno(ino());
         is_deleted_ = true;
     }
 
@@ -381,24 +381,24 @@ namespace fs {
             truncate((range.start + 1) * fat32::KDirEntrySize);
         }
 
-        fs_.rmFileFromCacheByName(name);
+        fs_.rmFileFromCacheByIno(((u64) fst_clus_ << 32) | range.start);
         return true;
     }
 
     optional<shared_ptr<File>> Directory::lookupFile(const char *name) noexcept {
-        auto cache_result = fs_.getFileByName(name);
-        if (cache_result.has_value()) {
-            return cache_result;
-        }
-
         auto lookup_result = lookupFileInner(name);
         if (!lookup_result.has_value()) {
             return std::nullopt;
         }
         DirEntryRange range = lookup_result.value();
+        u64 ino = ((u64) this->fst_clus_ << 32) | range.start;
+        auto cached_result = fs_.getFileByIno(ino);
+        if (cached_result.has_value()) { // if it's already cached, we don't need to create another fs::File object.
+            return cached_result.value();
+        }
+
         fat32::LongDirEntry lst_dir_entry = readDirEntry(range.start + range.count - 1).value();
         fat32::ShortDirEntry s_dir_entry = fat32::castLongDirEntryToShort(lst_dir_entry);
-
         shared_ptr<File> file;
         if (fat32::isDirectory(s_dir_entry)) {
             file = std::make_shared<Directory>(this->fst_clus_, range.start, this->fs_, name, &s_dir_entry);
@@ -443,6 +443,11 @@ namespace fs {
             l_dir_entries.push_front(l_dir_entry);
         }
 
+        u64 ino = ((u64) this->fst_clus_ << 32) | entry_start;
+        auto cached_result = fs_.getFileByIno(ino);
+        if (cached_result.has_value()) { // if it's already cached, we don't need to create another fs::File object.
+            return cached_result.value();
+        }
 
         util::string_gbk short_name = fat32::readShortEntryName(s_dir_entry);
         util::string_utf8 name;
@@ -460,10 +465,6 @@ namespace fs {
             name = util::gbkToUtf8(short_name).value();
         }
 
-        auto cache_result = fs_.getFileByName(name.c_str());
-        if (cache_result.has_value()) {
-            return cache_result;
-        }
 
         shared_ptr<File> file;
         if (fat32::isDirectory(s_dir_entry)) {
@@ -730,12 +731,8 @@ namespace fs {
         this->cached_lookup_files_.put(ino, std::move(file));
     }
 
-    void FAT32fs::rmFileFromCacheByName(const char *name) noexcept {
-        auto result = getFileByName(name);
-        if (result.has_value()) {
-            auto file = result.value();
-            cached_lookup_files_.remove(file->ino());
-        }
+    void FAT32fs::rmFileFromCacheByIno(u64 ino) noexcept {
+        cached_lookup_files_.remove(ino);
     }
 
     optional<shared_ptr<File>> FAT32fs::openFile(u64 ino) noexcept {

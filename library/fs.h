@@ -76,7 +76,8 @@ namespace fs {
         /**
          * Iterate over each directory entry of the cluster chain, return false when chain_index exceeds.
          * */
-        static bool iterClusChainEntry(std::vector<u32> &clus_chain, u32 &chain_index, u32 &sec_index, u32 &sec_off, fat32::BPB& bpb) noexcept;
+        static bool iterClusChainEntry(std::vector<u32> &clus_chain, u32 &chain_index, u32 &sec_index, u32 &sec_off,
+                                       fat32::BPB &bpb) noexcept;
 
         u32 file_sz_;
         /**
@@ -210,9 +211,9 @@ namespace fs {
         void addFileToCache(shared_ptr<File> file) noexcept;
 
         /**
-         * Remove the file object from cache by name.
+         * Remove the file object from cache by ino.
          * */
-        void rmFileFromCacheByName(const char *name) noexcept;
+        void rmFileFromCacheByIno(u64 ino) noexcept;
 
         /**
          * Get file from `cached_lookup_files_`, and store it in `cached_open_files`.
