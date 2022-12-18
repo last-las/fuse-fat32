@@ -40,7 +40,7 @@ namespace fs {
                 return std::nullopt;
             }
             if ((long_dir_entry->attr & fat32::KAttrLongNameMask) != fat32::KAttrLongName) { // find short dir entry
-                result = {*(fat32::ShortDirEntry *) &long_dir_entry};
+                result = {*(fat32::ShortDirEntry *) long_dir_entry};
                 break;
             }
 
@@ -684,7 +684,20 @@ namespace fs {
     }
 
     std::optional<shared_ptr<File>> FAT32fs::getFileByIno(u64 ino) noexcept {
-        return cached_lookup_files_.get(ino);
+        auto cache_result = cached_lookup_files_.get(ino);
+        if (cache_result.has_value()) {
+            return cache_result;
+        }
+
+        if (ino == KRootDirIno) {
+            return getRootDir();
+        } else {
+            auto result = File::fromIno(ino, *this);
+            if (result.has_value()) {
+                cached_lookup_files_.put(ino, result.value());
+            }
+            return result;
+        }
     }
 
     optional<shared_ptr<File>> FAT32fs::getFileByName(const char *name) noexcept {
@@ -699,7 +712,13 @@ namespace fs {
     }
 
     std::optional<shared_ptr<Directory>> FAT32fs::getDirByIno(u64 ino) noexcept {
-        assert(false);
+        auto result = getFileByIno(ino);
+        if (result.has_value() && result.value()->isDir()) {
+            auto dir = std::dynamic_pointer_cast<Directory>(result.value());
+            return dir;
+        } else {
+            return std::nullopt;
+        }
     }
 
     optional<shared_ptr<Directory>> FAT32fs::getDirByName(const char *name) noexcept {

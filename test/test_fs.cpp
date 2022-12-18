@@ -94,8 +94,29 @@ TEST_F(FAT32fsTest, RootDir) {
 }
 
 TEST_F(FAT32fsTest, GetFileByIno) {
-    GTEST_SKIP();
+    auto root = filesystem->getRootDir();
+    auto file_looked_up_by_name = root->lookupFile(long_name_file).value();
+    u64 ino = file_looked_up_by_name->ino();
+    filesystem->flush();
+
+    auto file_looked_up_by_ino = filesystem->getFileByIno(ino).value();
+    ASSERT_STREQ(file_looked_up_by_name->name(), file_looked_up_by_ino->name());
 }
+
+TEST_F(FAT32fsTest, GetDirByIno) {
+    auto root = filesystem->getRootDir();
+    auto dir_looked_up_by_name = std::dynamic_pointer_cast<fs::Directory>(root->lookupFile(simple_dir2).value());
+    auto file_looked_up_by_name = root->lookupFile(empty_file).value();
+    u64 dir_ino = dir_looked_up_by_name->ino();
+    u64 file_ino = file_looked_up_by_name->ino();
+    filesystem->flush();
+
+    auto dir_looked_up_by_ino = filesystem->getDirByIno(dir_ino).value();
+    ASSERT_STREQ(dir_looked_up_by_name->name(), dir_looked_up_by_ino->name());
+    ASSERT_FALSE(filesystem->getDirByIno(file_ino).has_value());
+}
+
+// todo: fix: lookupFile has a same name bug!
 
 TEST_F(FAT32fsTest, OpenFileByIno) {
     GTEST_SKIP();

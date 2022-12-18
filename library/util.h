@@ -114,7 +114,7 @@ namespace util {
 
     void dumpObj(void *stuff, u32 size) noexcept;
 
-#define DUMP_OBJECT(x) util::dump(&(x), sizeof(x))
+#define DUMP_OBJECT(x) util::dumpObj(&(x), sizeof(x))
 
     // from https://inversepalindrome.com/blog/how-to-format-a-string-in-cpp.
     template<typename... Args>
