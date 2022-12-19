@@ -106,7 +106,11 @@ static void fat32_getattr(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info 
 
 // The dispatcher for chmod, chown, truncate and utimensat/futimens, some of them should be skipped.
 static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int valid, struct fuse_file_info *fi) {
-    // chmod, chown are ignored for fat32.
+    if (valid & (FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID)) {
+        fuse_reply_err(req, EPERM); // chown cannot be implemented on fat32
+        return;
+    }
+    // chmod are ignored for fat32.
     auto file = getExistFile(ino);
     if (valid & FUSE_SET_ATTR_SIZE) {
         if (!file->truncate(attr->st_size)) {
