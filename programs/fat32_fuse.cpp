@@ -484,6 +484,7 @@ int main(int argc, char *argv[]) {
         config.max_idle_threads = opts.max_idle_threads;
         ret = fuse_session_loop_mt(se, &config);
     }
+    filesystem->flush();
 
     fuse_session_unmount(se);
     err_out3:
