@@ -283,7 +283,9 @@ namespace fat32 {
     public:
         FAT(BPB bpb, u32 free_count, std::shared_ptr<device::Device> device) noexcept;
 
-        u64 availClusCnt() noexcept;
+        u32 availClusCnt() noexcept;
+
+        u32 totalClusCnt() const noexcept { return cnt_of_clus_; }
 
         std::optional<std::vector<u32>> allocClus(u32 require_clus_num) noexcept;
 
@@ -313,7 +315,7 @@ namespace fat32 {
         u32 cnt_of_clus_;
         BPB bpb_;
         u32 free_count_;
-        std::optional<u64> avail_clus_cnt_;
+        std::optional<u32> avail_clus_cnt_;
         std::shared_ptr<device::Device> device_;
 
         // todo: rename

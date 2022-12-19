@@ -10,41 +10,57 @@
 #include "fuse_lowlevel.h"
 #include "fs.h"
 
-std::optional<fs::FAT32fs> filesystem;
+std::unique_ptr<fs::FAT32fs> filesystem;
 
-fs::FAT32fs &getFilesystem() {
-    assert(filesystem.has_value());
-    return filesystem.value();
-}
 
 // If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::Directory> getExistDir(fuse_ino_t ino) {
-    auto result = getFilesystem().getDirByIno(ino);
+    auto result = filesystem->getDirByIno(ino);
     assert(result.has_value());
     return result.value();
 }
 
 // If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::File> getExistFile(fuse_ino_t ino) {
-    auto result = getFilesystem().getFileByIno(ino);
+    auto result = filesystem->getFileByIno(ino);
     assert(result.has_value());
     return result.value();
 }
 
 struct stat readFileStat(std::shared_ptr<fs::File> file) {
-    // TODO
-}
+    struct stat file_stat;
+    file_stat.st_dev = 0;
+    file_stat.st_ino = file->ino();
+    file_stat.st_mode = file->isDir() ? S_IRWXU | S_IFDIR : S_IRWXU | S_IFREG;
+    file_stat.st_nlink = 0;
+    file_stat.st_uid = 0;
+    file_stat.st_gid = 0;
+    file_stat.st_rdev = 0;
+    file_stat.st_size = file->file_sz();
+    file_stat.st_blksize = 0; // ignored currently
+    file_stat.st_blocks = 0; // ignored currently
+    file_stat.st_atim = fat32::dos2UnixTs(file->accTime());
+    file_stat.st_mtim = fat32::dos2UnixTs(file->wrtTime());
+    file_stat.st_ctim = fat32::dos2UnixTs_2(file->crtTime());
 
-std::optional<fat32::FatTimeStamp2> unix2DosTs(struct timespec unix_ts) {
-    // TODO
-}
-
-fat32::FatTimeStamp2 getCurTs() {
-    // TODO
+    return file_stat;
 }
 
 struct statvfs getStatfs() {
-    // TODO
+    struct statvfs fs_stat{};
+    fs_stat.f_bsize = fat32::bytesPerClus(filesystem->bpb());
+    fs_stat.f_frsize = fat32::bytesPerClus(filesystem->bpb());
+    fs_stat.f_blocks = filesystem->fat().totalClusCnt();
+    fs_stat.f_bfree = filesystem->fat().availClusCnt();
+    fs_stat.f_favail = filesystem->fat().availClusCnt();
+    fs_stat.f_files = 0;
+    fs_stat.f_ffree = 0;
+    fs_stat.f_favail = 0;
+    fs_stat.f_fsid = 2080;
+    fs_stat.f_flag = 0;
+    fs_stat.f_namemax = 64;
+
+    return fs_stat;
 }
 
 static void fat32_init(void *userdata, struct fuse_conn_info *conn) {
@@ -94,41 +110,26 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
         }
     }
     if (valid & FUSE_SET_ATTR_CTIME) {
-        auto ts_result = unix2DosTs(attr->st_ctim);
-        if (!ts_result.has_value()) {
-            fuse_reply_err(req, EINVAL);
-            return;
-        }
-        fat32::FatTimeStamp2 ts2 = ts_result.value();
+        fat32::FatTimeStamp2 ts2 = fat32::unix2DosTs_2(attr->st_ctim);
         file->setCrtTime(ts2);
     }
     if (valid & FUSE_SET_ATTR_ATIME) {
-        fat32::FatTimeStamp2 ts2{};
+        fat32::FatTimeStamp ts{};
         if (valid & FUSE_SET_ATTR_ATIME_NOW) {
-            ts2 = getCurTs();
+            ts = fat32::getCurDosTs();
         } else {
-            auto ts_result = unix2DosTs(attr->st_atim);
-            if (!ts_result.has_value()) {
-                fuse_reply_err(req, EINVAL);
-                return;
-            }
-            ts2 = ts_result.value();
+            ts = fat32::unix2DosTs(attr->st_atim);
         }
-        file->setAccTime(ts2.ts);
+        file->setAccTime(ts);
     }
     if (valid & FUSE_SET_ATTR_MTIME) {
-        fat32::FatTimeStamp2 ts2{};
+        fat32::FatTimeStamp ts{};
         if (valid & FUSE_SET_ATTR_MTIME_NOW) {
-            ts2 = getCurTs();
+            ts = fat32::getCurDosTs();
         } else {
-            auto ts_result = unix2DosTs(attr->st_mtim);
-            if (!ts_result.has_value()) {
-                fuse_reply_err(req, EINVAL);
-                return;
-            }
-            ts2 = ts_result.value();
+            ts = fat32::unix2DosTs(attr->st_mtim);
         }
-        file->setWrtTime(ts2.ts);
+        file->setWrtTime(ts);
     }
     fuse_reply_err(req, 0);
 }
@@ -229,7 +230,7 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
 }
 
 static void fat32_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    auto result = getFilesystem().openFile(ino);
+    auto result = filesystem->openFile(ino);
     assert(result.has_value());
     fuse_reply_open(req, fi);
 }
@@ -254,7 +255,7 @@ static void fat32_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
 static void fat32_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
     // Release is called when FUSE is completely done with a file;
     //  at that point, you can free up any temporarily allocated data structures.
-    getFilesystem().closeFile(ino);
+    filesystem->closeFile(ino);
     fuse_reply_err(req, 0);
 }
 
@@ -270,7 +271,7 @@ static void fat32_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info 
         fuse_reply_err(req, ENOTDIR);
         return;
     }
-    assert(getFilesystem().openFile(ino).has_value());
+    assert(filesystem->openFile(ino).has_value());
     fuse_reply_open(req, fi);
 }
 
@@ -331,7 +332,7 @@ static void fat32_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_in
         fuse_reply_err(req, ENOTDIR);
         return;
     }
-    getFilesystem().closeFile(ino);
+    filesystem->closeFile(ino);
     fuse_reply_err(req, 0);
 }
 
@@ -405,9 +406,10 @@ int main(int argc, char *argv[]) {
     // TODO: make sure the path exists!
     // TODO: check the file name length!
     // TODO: multiprocess: make sure if the file has been deleted other operation on this object should always fail.
+    // TODO: handle open with flags(e.g. O_APPEND, O_RDWR) properly.
 
     auto real_device = std::make_shared<device::LinuxFileDriver>("/dev/sdb1", SECTOR_SIZE);
     auto cache_mgr = std::make_shared<device::CacheManager>(std::move(real_device));
-    auto fs = fs::FAT32fs::from(std::move(cache_mgr));
+    filesystem = fs::FAT32fs::from(std::move(cache_mgr));
     printf("hello world! --fuse\n");
 }

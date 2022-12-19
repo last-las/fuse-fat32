@@ -347,12 +347,12 @@ namespace fat32 {
         free_count_ = free_count;
     }
 
-    u64 FAT::availClusCnt() noexcept {
+    u32 FAT::availClusCnt() noexcept {
         if (this->avail_clus_cnt_.has_value()) {
             return this->avail_clus_cnt_.value();
         }
 
-        u64 avail_clus_cnt = 0;
+        u32 avail_clus_cnt = 0;
         u32 cnt_of_clus = 0;
         for (u32 i = this->start_sec_no_; i < this->end_sec_no() && cnt_of_clus < this->cnt_of_clus_; ++i) {
             for (u32 j = 0; j < SECTOR_SIZE / KFATEntSz && cnt_of_clus < this->cnt_of_clus_; ++j, ++cnt_of_clus) {

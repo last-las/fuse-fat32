@@ -199,6 +199,18 @@ namespace fs {
         wrt_time_ = ts;
     }
 
+    fat32::FatTimeStamp2 File::crtTime() noexcept {
+        return crt_time_;
+    }
+
+    fat32::FatTimeStamp File::accTime() noexcept {
+        return {0, acc_date_};
+    }
+
+    fat32::FatTimeStamp File::wrtTime() noexcept {
+        return wrt_time_;
+    }
+
     bool File::isDir() noexcept {
         return false;
     }

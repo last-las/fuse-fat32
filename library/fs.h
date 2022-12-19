@@ -41,6 +41,12 @@ namespace fs {
 
         void setWrtTime(FatTimeStamp ts) noexcept;
 
+        fat32::FatTimeStamp2 crtTime() noexcept;
+
+        fat32::FatTimeStamp accTime() noexcept;
+
+        fat32::FatTimeStamp wrtTime() noexcept;
+
         virtual bool isDir() noexcept;
 
         // todo: rename the function name
