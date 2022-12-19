@@ -7,7 +7,9 @@
 #include <sys/vfs.h>
 #include "utime.h"
 #include <vector>
+#include <fuse_i.h>
 #include "fuse_lowlevel.h"
+#include "fuse_common.h"
 #include "fs.h"
 
 std::unique_ptr<fs::FAT32fs> filesystem;
@@ -166,7 +168,6 @@ static void fat32_unlink(fuse_req_t req, fuse_ino_t parent, const char *name) {
     fuse_reply_err(req, 0);
 }
 
-// todo: check whether the directory is empty before deleting.
 static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
     auto parent_dir = getExistDir(parent);
     auto child_result = parent_dir->lookupFile(name);
@@ -179,8 +180,15 @@ static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
         fuse_reply_err(req, ENOTDIR);
         return;
     }
+
+    auto sub_dir = std::dynamic_pointer_cast<fs::Directory>(child);
+    if (!sub_dir->isEmpty()) {
+        fuse_reply_err(req, ENOTEMPTY);
+        return;
+    }
+
     assert(parent_dir->delFile(name));
-    child->markDeleted();
+    sub_dir->markDeleted();
     fuse_reply_err(req, 0);
 }
 
@@ -235,9 +243,11 @@ static void fat32_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi
     fuse_reply_open(req, fi);
 }
 
-// todo: make sure size is less than u32::max
 static void fat32_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset, struct fuse_file_info *fi) {
-    // TODO: optimize here... this seems a little dumb
+    if (size >= 4294967295) { // size should be less than u32::max
+        fuse_reply_err(req, EINVAL);
+        return;
+    }
     auto file = getExistFile(ino);
     byte *buf = new byte[size];
     auto cnt = file->read(buf, size, offset);
@@ -378,8 +388,8 @@ static void fat32_create(fuse_req_t req, fuse_ino_t parent, const char *name, mo
 }
 
 static const struct fuse_lowlevel_ops fat32_ll_oper = {
-        .init = fat32_init,
-        .destroy = fat32_destroy,
+        // .init = fat32_init,
+        // .destroy = fat32_destroy,
         .lookup = fat32_lookup,
         .getattr = fat32_getattr,
         .setattr = fat32_setattr,
@@ -402,14 +412,76 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
 };
 
 int main(int argc, char *argv[]) {
+    // TODO: parse arguments
     // TODO: enable -o default_permissions;
     // TODO: make sure the path exists!
     // TODO: check the file name length!
     // TODO: multiprocess: make sure if the file has been deleted other operation on this object should always fail.
     // TODO: handle open with flags(e.g. O_APPEND, O_RDWR) properly.
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    struct fuse_session *se;
+    struct fuse_cmdline_opts opts;
+    struct fuse_loop_config config;
+    std::shared_ptr<device::LinuxFileDriver> real_device;
+    std::shared_ptr<device::CacheManager> cache_mgr;
+    int ret = -1;
 
-    auto real_device = std::make_shared<device::LinuxFileDriver>("/dev/sdb1", SECTOR_SIZE);
-    auto cache_mgr = std::make_shared<device::CacheManager>(std::move(real_device));
+    if (fuse_parse_cmdline(&args, &opts) != 0)
+        return 1;
+
+    if (opts.show_help) {
+        printf("usage: %s [options] <mountpoint>\n\n", argv[0]);
+        fuse_cmdline_help();
+        fuse_lowlevel_help();
+        ret = 0;
+        goto err_out1;
+    } else if (opts.show_version) {
+        printf("FUSE library version %s\n", fuse_pkgversion());
+        fuse_lowlevel_version();
+        ret = 0;
+        goto err_out1;
+    }
+
+    if (opts.mountpoint == NULL) {
+        printf("usage: %s [options] <mountpoint>\n", argv[0]);
+        printf("       %s --help\n", argv[0]);
+        ret = 1;
+        goto err_out1;
+    }
+
+    se = fuse_session_new(&args, &fat32_ll_oper,
+                          sizeof(fuse_lowlevel_ops), NULL);
+    if (se == NULL)
+        goto err_out1;
+
+    if (fuse_set_signal_handlers(se) != 0)
+        goto err_out2;
+
+    if (fuse_session_mount(se, opts.mountpoint) != 0)
+        goto err_out3;
+
+    real_device = std::make_shared<device::LinuxFileDriver>("/dev/sdb1", SECTOR_SIZE);
+    cache_mgr = std::make_shared<device::CacheManager>(std::move(real_device));
     filesystem = fs::FAT32fs::from(std::move(cache_mgr));
-    printf("hello world! --fuse\n");
+    fuse_daemonize(opts.foreground);
+
+    /* Block until ctrl+c or fusermount -u */
+    if (opts.singlethread)
+        ret = fuse_session_loop(se);
+    else {
+        config.clone_fd = opts.clone_fd;
+        config.max_idle_threads = opts.max_idle_threads;
+        ret = fuse_session_loop_mt(se, &config);
+    }
+
+    fuse_session_unmount(se);
+    err_out3:
+    fuse_remove_signal_handlers(se);
+    err_out2:
+    fuse_session_destroy(se);
+    err_out1:
+    free(opts.mountpoint);
+    fuse_opt_free_args(&args);
+
+    return ret ? 1 : 0;
 }
