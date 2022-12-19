@@ -17,6 +17,9 @@ std::unique_ptr<fs::FAT32fs> filesystem;
 
 // If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::Directory> getExistDir(fuse_ino_t ino) {
+    if (ino == 1) {
+        ino = 0;
+    }
     auto result = filesystem->getDirByIno(ino);
     assert(result.has_value());
     return result.value();
@@ -24,6 +27,9 @@ std::shared_ptr<fs::Directory> getExistDir(fuse_ino_t ino) {
 
 // If ino is provided, the directory must exist on the filesystem
 std::shared_ptr<fs::File> getExistFile(fuse_ino_t ino) {
+    if (ino == 1) {
+        ino = 0;
+    }
     auto result = filesystem->getFileByIno(ino);
     assert(result.has_value());
     return result.value();
@@ -238,8 +244,8 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
 }
 
 static void fat32_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
-    auto result = filesystem->openFile(ino);
-    assert(result.has_value());
+    // auto result = filesystem->openFile(ino);
+    // assert(result.has_value());
     fuse_reply_open(req, fi);
 }
 
@@ -281,7 +287,7 @@ static void fat32_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info 
         fuse_reply_err(req, ENOTDIR);
         return;
     }
-    assert(filesystem->openFile(ino).has_value());
+    // assert(filesystem->openFile(ino).has_value());
     fuse_reply_open(req, fi);
 }
 
@@ -362,9 +368,14 @@ static void fat32_statfs(fuse_req_t req, fuse_ino_t ino) {
     fuse_reply_statfs(req, &stat_vfs);
 }
 
+static bool is_file_type(mode_t mode, mode_t flag) {
+    return (mode & S_IFMT) == flag;
+}
+
 // we will only create regular file.
 static void fat32_create(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode, struct fuse_file_info *fi) {
-    if ((mode & S_IFSOCK) | (mode & S_IFLNK) | (mode & S_IFBLK) | (mode & S_IFDIR) | (mode & S_IFCHR) | (S_IFIFO)) {
+    if (is_file_type(mode, S_IFSOCK) | is_file_type(mode, S_IFLNK) | is_file_type(mode, S_IFBLK) |
+        is_file_type(mode, S_IFDIR) | is_file_type(mode, S_IFCHR) | is_file_type(mode, S_IFIFO)) {
         fuse_reply_err(req, EPERM);
         return;
     }

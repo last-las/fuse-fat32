@@ -752,7 +752,7 @@ namespace fs {
     }
 
     void FAT32fs::closeFile(u64 ino) noexcept {
-        assert(false);
+        // assert(false);
     }
 
     void FAT32fs::flush() noexcept {
