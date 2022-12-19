@@ -39,7 +39,7 @@ struct stat readFileStat(std::shared_ptr<fs::File> file) {
     struct stat file_stat;
     file_stat.st_dev = 0;
     file_stat.st_ino = file->ino();
-    file_stat.st_mode = file->isDir() ? S_IRWXU | S_IFDIR : S_IRWXU | S_IFREG;
+    file_stat.st_mode = file->isDir() ? 0755 | S_IFDIR : 0755 | S_IFREG;
     file_stat.st_nlink = 0;
     file_stat.st_uid = 0;
     file_stat.st_gid = 0;
@@ -414,11 +414,11 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .open = fat32_open,
         .read = fat32_read,
         .write = fat32_write,
-        .release = fat32_release,
+        // .release = fat32_release,
         .fsync = fat32_fsync,
         .opendir = fat32_opendir,
         .readdir = fat32_readdir,
-        .releasedir = fat32_releasedir,
+        // .releasedir = fat32_releasedir,
         .fsyncdir = fat32_fsyncdir,
         .statfs = fat32_statfs,
         .create = fat32_create,
