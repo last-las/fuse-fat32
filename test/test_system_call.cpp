@@ -350,7 +350,7 @@ TEST(ReadDirTest, ListDir) {
 TEST(StatfsTest, Statfs) {
     struct statfs stat{};
     ASSERT_EQ(statfs("./", &stat), 0);
-    ASSERT_EQ(stat.f_type, 0x4d44); // MSDOS_SUPER_MAGIC
+    // for fuse and real fat32, stat.f_type is different, so it's ignored.
     ASSERT_GT(stat.f_bsize, 0);
     ASSERT_GT(stat.f_blocks, 0);
     ASSERT_GT(stat.f_bfree, 0);
@@ -358,18 +358,6 @@ TEST(StatfsTest, Statfs) {
     ASSERT_EQ(stat.f_files, 0);
     ASSERT_EQ(stat.f_ffree, 0);
     // TODO: ASSERT_GT(stat.f_namelen, 0);
-}
-
-// This test case only passes under fat32
-TEST(CrtFileTest, ConstantMode) {
-    int fd = creat(tmp_file, S_IFREG);
-    EXPECT_GT(fd, 0);
-    struct stat stat_{};
-    EXPECT_EQ(fstat(fd, &stat_), 0);
-    EXPECT_EQ(stat_.st_mode & 0777, 0755);
-
-    EXPECT_EQ(close(fd), 0);
-    rm_file(tmp_file);
 }
 
 // This test case only passes under fat32
@@ -453,7 +441,7 @@ TEST(RenameTest, SrcNonExist) {
 TEST(RenameTest, SrcFileDstNonExist) {
     assert_file_exist(simple_file1);
     assert_file_non_exist(non_exist_file);
-    ASSERT_EQ(rename(simple_file1, non_exist_file), 0);
+    ASSERT_EQ(rename(simple_file1, non_exist_file), 0) << "The errno is: " << errno;
     assert_file_non_exist(simple_file1);
     assert_file_exist(non_exist_file);
 

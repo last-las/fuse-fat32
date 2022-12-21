@@ -35,6 +35,19 @@ std::shared_ptr<fs::File> getExistFile(fuse_ino_t ino) {
     return result.value();
 }
 
+bool isFileType(mode_t mode, mode_t flag) {
+    return (mode & S_IFMT) == flag;
+}
+
+bool isIllegalFat32FileType(mode_t mode) {
+    if (isFileType(mode, S_IFSOCK) | isFileType(mode, S_IFLNK) | isFileType(mode, S_IFBLK) |
+        isFileType(mode, S_IFDIR) | isFileType(mode, S_IFCHR) | isFileType(mode, S_IFIFO)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 struct stat readFileStat(std::shared_ptr<fs::File> file) {
     struct stat file_stat;
     file_stat.st_dev = 0;
@@ -60,7 +73,7 @@ struct statvfs getStatfs() {
     fs_stat.f_frsize = fat32::bytesPerClus(filesystem->bpb());
     fs_stat.f_blocks = filesystem->fat().totalClusCnt();
     fs_stat.f_bfree = filesystem->fat().availClusCnt();
-    fs_stat.f_favail = filesystem->fat().availClusCnt();
+    fs_stat.f_bavail = filesystem->fat().availClusCnt();
     fs_stat.f_files = 0;
     fs_stat.f_ffree = 0;
     fs_stat.f_favail = 0;
@@ -145,6 +158,11 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
     fuse_reply_attr(req, &new_stat, 0);
 }
 
+static void fat32_mknod(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode, dev_t rdev) {
+    // Even though mknod can be used to create a regular file... we return EPERM in every situation.
+    fuse_reply_err(req, EPERM);
+}
+
 // fat32 doesn't support mode
 static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t) {
     auto parent_dir = getExistDir(parent);
@@ -201,6 +219,10 @@ static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
     fuse_reply_err(req, 0);
 }
 
+static void fat32_symlink(fuse_req_t req, const char *link, fuse_ino_t parent, const char *name) {
+    fuse_reply_err(req, EPERM);
+}
+
 // for simplicity, ignores when `flags` is not empty
 static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
                          fuse_ino_t newparent, const char *newname, unsigned int flags) {
@@ -244,6 +266,10 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
     }
 
     fuse_reply_err(req, 0);
+}
+
+static void fat32_link(fuse_req_t req, fuse_ino_t ino, fuse_ino_t newparent, const char *newname) {
+    fuse_reply_err(req, EPERM);
 }
 
 static void fat32_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
@@ -371,14 +397,10 @@ static void fat32_statfs(fuse_req_t req, fuse_ino_t ino) {
     fuse_reply_statfs(req, &stat_vfs);
 }
 
-static bool is_file_type(mode_t mode, mode_t flag) {
-    return (mode & S_IFMT) == flag;
-}
 
 // we will only create regular file.
 static void fat32_create(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode, struct fuse_file_info *fi) {
-    if (is_file_type(mode, S_IFSOCK) | is_file_type(mode, S_IFLNK) | is_file_type(mode, S_IFBLK) |
-        is_file_type(mode, S_IFDIR) | is_file_type(mode, S_IFCHR) | is_file_type(mode, S_IFIFO)) {
+    if (isIllegalFat32FileType(mode)) {
         fuse_reply_err(req, EPERM);
         return;
     }
@@ -407,10 +429,13 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
         .lookup = fat32_lookup,
         .getattr = fat32_getattr,
         .setattr = fat32_setattr,
+        .mknod = fat32_mknod,
         .mkdir = fat32_mkdir,
         .unlink = fat32_unlink,
         .rmdir = fat32_rmdir,
+        .symlink = fat32_symlink,
         .rename = fat32_rename,
+        .link = fat32_link,
         .open = fat32_open,
         .read = fat32_read,
         .write = fat32_write,
@@ -474,7 +499,7 @@ int main(int argc, char *argv[]) {
     if (fuse_session_mount(se, opts.mountpoint) != 0)
         goto err_out3;
 
-    real_device = std::make_shared<device::LinuxFileDriver>("/dev/sdb1", SECTOR_SIZE);
+    real_device = std::make_shared<device::LinuxFileDriver>("/dev/sdb", SECTOR_SIZE);
     cache_mgr = std::make_shared<device::CacheManager>(std::move(real_device));
     filesystem = fs::FAT32fs::from(std::move(cache_mgr));
     fuse_daemonize(opts.foreground);
