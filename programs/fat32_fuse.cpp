@@ -228,6 +228,7 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
                          fuse_ino_t newparent, const char *newname, unsigned int flags) {
     if (flags) {
         fuse_reply_err(req, EINVAL);
+        return;
     }
 
     auto old_parent = getExistDir(parent);
