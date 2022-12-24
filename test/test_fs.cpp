@@ -13,6 +13,7 @@ const char simple_file4[] = "short4.txt";
 const char empty_file[] = "empty.txt";
 const char simple_dir1[] = "simple1";
 const char simple_dir2[] = "simple2";
+const char empty_dir[] = "empty_dir";
 const char long_name_file[] = "this_is_a_long_name_file.1234";
 
 class TestFsEnv : public testing::Environment, Fat32Filesystem {
@@ -39,6 +40,7 @@ public:
         crtFileOrExist(long_name_file);
         crtDirOrExist(simple_dir1);
         crtDirOrExist(simple_dir2);
+        crtDirOrExist(empty_dir);
         sync();
     }
 
@@ -412,6 +414,26 @@ TEST_F(FileTest, RenameTargetNotExists) {
 
     assert_file_content(non_exist_name, buf, buf_size);
     assert_file_non_exist(exist_name);
+}
+
+TEST_F(DirTest, RenameTargetNotExists) {
+    const char *exist_dir_name = empty_dir;
+    const char non_exist_dir[] = "rename_non_exists_dir";
+
+    // rename an exist dir to a non exist dir
+    auto root = filesystem->getRootDir();
+    auto old_dir = root->lookupFile(exist_dir_name).value();
+    auto new_dir = root->crtDir(non_exist_dir).value();
+    old_dir->exchangeMetaData(new_dir);
+    old_dir->markDeleted();
+
+    root->sync(true);
+    new_dir->sync(true);
+    filesystem->flush();
+    TestFsEnv::reMount();
+
+    assert_dir_exist(non_exist_dir);
+    assert_dir_non_exist(exist_dir_name);
 }
 
 TEST_F(DirTest, CrtDir) {

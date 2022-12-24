@@ -441,7 +441,7 @@ TEST(RenameTest, SrcNonExist) {
 TEST(RenameTest, SrcFileDstNonExist) {
     assert_file_exist(simple_file1);
     assert_file_non_exist(non_exist_file);
-    ASSERT_EQ(rename(simple_file1, non_exist_file), 0) << "The errno is: " << errno;
+    ASSERT_EQ(rename(simple_file1, non_exist_file), 0);
     assert_file_non_exist(simple_file1);
     assert_file_exist(non_exist_file);
 

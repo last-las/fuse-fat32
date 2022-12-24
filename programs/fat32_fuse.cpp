@@ -223,9 +223,9 @@ static void fat32_symlink(fuse_req_t req, const char *link, fuse_ino_t parent, c
     fuse_reply_err(req, EPERM);
 }
 
-// for simplicity, ignores when `flags` is not empty
 static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
                          fuse_ino_t newparent, const char *newname, unsigned int flags) {
+    // for simplicity, return invalid when `flags` is not empty
     if (flags) {
         fuse_reply_err(req, EINVAL);
         return;
@@ -240,7 +240,7 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
     }
     auto old_file = old_result.value();
     auto new_result = new_parent->lookupFile(newname);
-    if (new_result.has_value()) { // newname exists, overwrite
+    if (new_result.has_value()) { // newname exists
         auto new_file = new_result.value();
         if (old_file->isDir()) {
             if (!new_file->isDir()) {
@@ -251,12 +251,17 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
                 return;
             }
         }
-        old_parent->delFile(name);
+        // todo: old_file isFile but new_file isDirectory?
+        // todo: fix echo 1 > a.txt; echo 2 > b.txt; mv a.txt b.txt
         new_file->exchangeMetaData(old_file);
         old_file->markDeleted();
     } else { // newname doesn't exist
-        old_parent->delFile(name);
-        auto result = new_parent->crtFile(newname);
+        std::optional<std::shared_ptr<fs::File>> result;
+        if (old_file->isDir()) {
+            result = new_parent->crtDir(newname);
+        } else {
+            result = new_parent->crtFile(newname);
+        }
         if (!result.has_value()) {
             fuse_reply_err(req, EFBIG);
             return;
