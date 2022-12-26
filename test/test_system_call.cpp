@@ -23,7 +23,8 @@ const char test_dir[] = "test_dir";
 const char non_exist_file[] = "non_exist_file";
 const char simple_file1[] = "short.txt";
 const char long_name_file[] = "longest_name_in_the_world.txt";
-const char non_empty_file[] = "content.txt";
+const char non_empty_file1[] = "non_empty_file1.txt";
+const char non_empty_file2[] = "non_empty_file2.txt";
 const char tmp_file[] = "tmp.txt"; // dynamic used and deleted by test cases
 const char non_empty_dir_file1[] = "non_empty_dir/sub_file1.txt";
 const char non_empty_dir_file2[] = "non_empty_dir/sub_file2.txt";
@@ -53,7 +54,8 @@ public:
         chdir(test_dir);
         crtFileOrExist(simple_file1);
         crtFileOrExist(long_name_file);
-        crtFileOrExist(non_empty_file);
+        crtFileOrExist(non_empty_file1);
+        crtFileOrExist(non_empty_file2);
         crtDirOrExist(short_name_dir);
         crtDirOrExist(non_empty_dir);
         crtFileOrExist(non_empty_dir_file1);
@@ -524,23 +526,39 @@ TEST(RenameTest, SubDir) {
     assert_file_non_exist(tmp_file);
 }
 
-TEST(RenameTest, SameContent) {
-    int fd1 = open(non_empty_file, O_RDONLY);
-    ASSERT_GT(fd1, 0);
-    size_t cnt1 = read(fd1, buffer, BUF_SIZE);
-    ASSERT_EQ(rename(non_empty_file, tmp_file), 0);
-    int fd2 = open(tmp_file, O_RDONLY);
-    ASSERT_GT(fd2, 0);
-    size_t cnt2 = read(fd2, buffer, BUF_SIZE);
-    ASSERT_EQ(cnt1, cnt2);
-    for (size_t i = 0; i < cnt1; ++i) {
-        ASSERT_EQ(buffer[i], buffer2[i]);
+TEST(RenameTest, DstNonExistSameContent) {
+    const char content_buf[] = "DstNonExistSameContent";
+    u32 content_sz = strlen(content_buf);
+    writeFile(non_empty_file1, content_buf, content_sz, 0);
+    assert_file_non_exist(tmp_file);
+    ASSERT_EQ(rename(non_empty_file1, tmp_file), 0);
+    readFile(tmp_file, buffer, content_sz, 0);
+    for (size_t i = 0; i < content_sz; ++i) {
+        ASSERT_EQ(content_buf[i], buffer[i]);
     }
 
     // recover
-    ASSERT_EQ(rename(tmp_file, non_empty_file), 0);
+    ASSERT_EQ(rename(tmp_file, non_empty_file1), 0);
     assert_file_non_exist(tmp_file);
-    assert_file_exist(non_empty_file);
+    assert_file_exist(non_empty_file1);
+}
+
+TEST(RenameTest, DstExistSameContent) {
+    // before
+    const char content_buf[] = "DstExistSameContent";
+    u32 content_sz = strlen(content_buf);
+    writeFile(non_empty_file1, content_buf, content_sz, 0);
+    // non_empty_file2 exists but has different content with non_empty_fil2 before rename.
+    writeFile(non_empty_file2, "1", 1, 0);
+
+    ASSERT_EQ(rename(non_empty_file1, non_empty_file2), 0);
+    readFile(non_empty_file2, buffer, content_sz, 0);
+    for (size_t i = 0; i < content_sz; ++i) {
+        ASSERT_EQ(content_buf[i], buffer[i]);
+    }
+
+    // recover
+    ASSERT_EQ(rename(non_empty_file2, non_empty_file1), 0);
 }
 
 int main(int argc, char **argv) {
