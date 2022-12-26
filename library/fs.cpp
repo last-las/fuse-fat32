@@ -263,11 +263,13 @@ namespace fs {
         this->crt_time_ = target->crt_time_;
         this->acc_date_ = target->acc_date_;
         this->wrt_time_ = target->wrt_time_;
+        this->clus_chain_ = std::nullopt;
         target->file_sz_ = this_file_sz;
         target->fst_clus_ = this_fst_clus;
         target->crt_time_ = this_crt_time;
         target->acc_date_ = this_acc_date;
         target->wrt_time_ = this_wrt_time;
+        target->clus_chain_ = std::nullopt;
 
         this->sync(true);
         target->sync(true);

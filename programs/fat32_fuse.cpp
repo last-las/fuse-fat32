@@ -231,6 +231,7 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
         return;
     }
 
+    // lookup name and newname on parent and newparent dir separately
     auto old_parent = getExistDir(parent);
     auto new_parent = getExistDir(newparent);
     auto old_result = old_parent->lookupFile(name);
@@ -240,19 +241,19 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
     }
     auto old_file = old_result.value();
     auto new_result = new_parent->lookupFile(newname);
+
     if (new_result.has_value()) { // newname exists
         auto new_file = new_result.value();
+        // libfuse checks the file type automatically, the asserting here makes sure that.
+        assert((old_file->isDir() && new_file->isDir()) || (!old_file->isDir() && !new_file->isDir()));
+
         if (old_file->isDir()) {
-            if (!new_file->isDir()) {
-                fuse_reply_err(req, ENOTDIR);
-                return;
-            } else if (!std::dynamic_pointer_cast<fs::Directory>(new_file)->isEmpty()) {
+            if (!std::dynamic_pointer_cast<fs::Directory>(new_file)->isEmpty()) {
                 fuse_reply_err(req, ENOTEMPTY);
                 return;
             }
         }
-        // todo: old_file isFile but new_file isDirectory?
-        // todo: fix echo 1 > a.txt; echo 2 > b.txt; mv a.txt b.txt
+
         new_file->exchangeMetaData(old_file);
         old_file->markDeleted();
     } else { // newname doesn't exist
