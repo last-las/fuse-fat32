@@ -203,6 +203,14 @@ namespace fs {
 
         static std::optional<FAT32fs> mkfs(std::shared_ptr<device::Device> device) noexcept;
 
+        /**
+         * Check whether the file name is valid before creating.
+         *
+         * Actually it is better to do validation inside Dir::crtFile and Dir::crtDir, however this requires us
+         * to return different errno inside those functions, the std::expected applies here but it's in cpp standard 23.
+         * */
+        static bool isValidName(const char *name) noexcept;
+
         shared_ptr<Directory> getRootDir() noexcept;
 
         optional<shared_ptr<File>> getFileByIno(u64 ino) noexcept;

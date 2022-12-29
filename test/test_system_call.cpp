@@ -28,7 +28,7 @@ const char non_empty_file2[] = "non_empty_file2.txt";
 const char tmp_file[] = "tmp.txt"; // dynamic used and deleted by test cases
 const char non_empty_dir_file1[] = "non_empty_dir/sub_file1.txt";
 const char non_empty_dir_file2[] = "non_empty_dir/sub_file2.txt";
-const char invalid_fat32_names[8][20] = {
+const char invalid_fat32_names[9][20] = {
         "abc\\", "abc:", "abc*", "abc?", "abc\"", "abc<", "abc>", "abc|"
 };
 const char non_empty_dir_dir[] = "non_empty_dir/sub_dir";

@@ -693,6 +693,17 @@ namespace fs {
         return std::nullopt;
     }
 
+    bool FAT32fs::isValidName(const char *name) noexcept {
+        while (*name != '\0') {
+            if (fat32::isInvalidLongEntryChr(*name)) {
+                return false;
+            }
+            name++;
+        }
+
+        return true;
+    }
+
     shared_ptr<Directory> FAT32fs::getRootDir() noexcept {
         u32 root_fst_clus = this->bpb_.BPB_root_clus;
         return Directory::mkRootDir(root_fst_clus, *this);

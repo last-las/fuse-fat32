@@ -28,8 +28,9 @@ namespace fat32 {
     const u8 KAttrVolumeID = 0x08;
     const u8 KAttrDirectory = 0x10;
     const u8 KAttrArchive = 0x20;
-    const u8 KInvalidFatBytes[] = {0x22, 0x2A, 0x2B, 0x2C, 0x2E, 0x2F, 0x3A, 0x3B,
-                                   0x3C, 0x3D, 0x3E, 0x3F, 0x5B, 0x5C, 0x5D, 0x7c};
+    const u8 KInvalidShortEntryBytes[] = {0x22, 0x2A, 0x2B, 0x2C, 0x2E, 0x2F, 0x3A, 0x3B,
+                                          0x3C, 0x3D, 0x3E, 0x3F, 0x5B, 0x5C, 0x5D, 0x7c};
+    const u8 KInvalidLongEntryBytes[] = {'\\', '/', ':', '*', '?', '"', '<', '>', '|'};
     // Long Directory Entry
     const u8 KAttrLongName = KAttrReadOnly | KAttrHidden | KAttrSystem | KAttrVolumeID;
     const u8 KAttrLongNameMask =
@@ -193,8 +194,9 @@ namespace fat32 {
 
     util::string_gbk readShortEntryName(ShortDirEntry &short_dir_entry);
 
-    // todo: fix this
-    bool containIllegalShortDirEntryChr(u8 val);
+    bool isInvalidShortEntryChr(u8 val);
+
+    bool isInvalidLongEntryChr(u8 val);
 
     inline void setFstClusNo(ShortDirEntry &short_dir_entry, u32 clus) {
         short_dir_entry.fst_clus_high = (u16) (clus >> 16);

@@ -16,8 +16,8 @@ static u32 start_sec_no_;
 static u32 fat_sec_no_;
 static u32 fat_num_;
 
-const u32 KNameCnt = 12;
-std::string short_names[KNameCnt] = {
+const u32 KSNameCnt = 12;
+std::string short_names[KSNameCnt] = {
         "SHORT",
         "SHORT.EXT",
         "DAMNLONG",
@@ -31,7 +31,8 @@ std::string short_names[KNameCnt] = {
         "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7.TXT",
         "\xc4\xe3\xba\xc3\x31\xca\xc0\xbd.TXT",
 };
-std::string long_names[KNameCnt] = {
+const u32 KLNameCnt = 14;
+std::string long_names[KLNameCnt] = {
         "short",
         "short.ext",
         "damnLongName",
@@ -44,8 +45,10 @@ std::string long_names[KNameCnt] = {
         "a.b.c.txt",
         "你好世界.txt",
         "你好1世界.txt",
+        "[123].[a]",
+        "+,;=[]1.txt",
 };
-fat32::BasisName basis_names[KNameCnt] = {
+fat32::BasisName basis_names[KLNameCnt] = {
         {"SHORT   ",                         "   "},
         {"SHORT   ",                         "EXT"},
         {"DAMNLONG",                         "   "},
@@ -58,6 +61,8 @@ fat32::BasisName basis_names[KNameCnt] = {
         {"A       ",                         "TXT"}, // Note that on win10, the "a.b.c.txt" is converted to "ABC.TXT".
         {"\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", "TXT"},
         {"\xc4\xe3\xba\xc3\x31\xca\xc0\xbd", "TXT"},
+        {"_123_   ",                         "_A_"},
+        {"______1 ",                         "TXT"},
 };
 const u8 fst_entry_data[32] = {
         0x01, 0x64, 0x00, 0x61, 0x00, 0x6D, 0x00, 0x6E, 0x00, 0x6C, 0x00, 0x0F, 0x00, 0x66, 0x6F, 0x00,
@@ -113,17 +118,17 @@ TEST(FAT32Test, StructSz) {
 }
 
 TEST(FAT32Test, IllegalChr) {
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('\\'));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('/'));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr(':'));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('*'));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('?'));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('\"'));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('<'));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('>'));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('|'));
-    ASSERT_TRUE(fat32::containIllegalShortDirEntryChr('.'));
-    ASSERT_FALSE(fat32::containIllegalShortDirEntryChr('\x05'));
+    ASSERT_TRUE(fat32::isInvalidShortEntryChr('\\'));
+    ASSERT_TRUE(fat32::isInvalidShortEntryChr('/'));
+    ASSERT_TRUE(fat32::isInvalidShortEntryChr(':'));
+    ASSERT_TRUE(fat32::isInvalidShortEntryChr('*'));
+    ASSERT_TRUE(fat32::isInvalidShortEntryChr('?'));
+    ASSERT_TRUE(fat32::isInvalidShortEntryChr('\"'));
+    ASSERT_TRUE(fat32::isInvalidShortEntryChr('<'));
+    ASSERT_TRUE(fat32::isInvalidShortEntryChr('>'));
+    ASSERT_TRUE(fat32::isInvalidShortEntryChr('|'));
+    ASSERT_TRUE(fat32::isInvalidShortEntryChr('.'));
+    ASSERT_FALSE(fat32::isInvalidShortEntryChr('\x05'));
 }
 
 TEST(FAT32Test, EntryClusNo) {
@@ -207,7 +212,7 @@ TEST(FAT32Test, mkLongDirEntry) {
 
 TEST(FAT32Test, genBasisNameFromShort) {
     fat32::BasisName gen_basis_name;
-    for (u32 i = 0; i < KNameCnt; ++i) {
+    for (u32 i = 0; i < KSNameCnt; ++i) {
         gen_basis_name = fat32::genBasisNameFromShort(short_names[i]);
         assert_basis_name_eq(gen_basis_name, basis_names[i]);
     }
@@ -215,7 +220,7 @@ TEST(FAT32Test, genBasisNameFromShort) {
 
 TEST(FAT32Test, genBasisNameFromLong) {
     fat32::BasisName gen_basis_name;
-    for (u32 i = 0; i < KNameCnt; ++i) {
+    for (u32 i = 0; i < KLNameCnt; ++i) {
         gen_basis_name = fat32::genBasisNameFromLong(long_names[i]);
         assert_basis_name_eq(gen_basis_name, basis_names[i]);
     }

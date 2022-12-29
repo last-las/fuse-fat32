@@ -91,11 +91,21 @@ namespace fat32 {
         return name;
     }
 
-    bool containIllegalShortDirEntryChr(u8 val) {
+    bool isInvalidShortEntryChr(u8 val) {
         if (val < 0x20 && val != 0x05) {
             return true;
         }
-        for (auto inval_byte: KInvalidFatBytes) {
+        for (auto inval_byte: KInvalidShortEntryBytes) {
+            if (val == inval_byte) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool isInvalidLongEntryChr(u8 val) {
+        for (auto inval_byte: KInvalidLongEntryBytes) {
             if (val == inval_byte) {
                 return true;
             }
@@ -318,7 +328,11 @@ namespace fat32 {
 
         // write primary portion
         for (int i = 0; i < 8 && i < gbk_str.length() && gbk_str[i] != '.'; i++) {
-            basis_name.primary[i] = gbk_str[i];
+            if (isInvalidShortEntryChr(gbk_str[i])) {
+                basis_name.primary[i] = '_';
+            } else {
+                basis_name.primary[i] = gbk_str[i];
+            }
         }
 
         // write extension portion if last period exists
@@ -330,7 +344,11 @@ namespace fat32 {
             }
         }
         for (u32 i = last_dot_index + 1, cnt = 0; cnt < 3 && i < gbk_str.length(); ++cnt, ++i) {
-            basis_name.extension[cnt] = gbk_str[i];
+            if (isInvalidShortEntryChr(gbk_str[i])) {
+                basis_name.extension[cnt] = '_';
+            } else {
+                basis_name.extension[cnt] = gbk_str[i];
+            }
         }
 
         return basis_name;

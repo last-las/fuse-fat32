@@ -165,6 +165,11 @@ static void fat32_mknod(fuse_req_t req, fuse_ino_t parent, const char *name, mod
 
 // fat32 doesn't support mode
 static void fat32_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t) {
+    if (!filesystem->isValidName(name)) {
+        fuse_reply_err(req, EINVAL);
+        return;
+    }
+
     auto parent_dir = getExistDir(parent);
     auto result = parent_dir->crtDir(name);
     if (!result.has_value()) {
@@ -257,6 +262,11 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
         new_file->exchangeMetaData(old_file);
         old_file->markDeleted();
     } else { // newname doesn't exist
+        if (!filesystem->isValidName(newname)) {
+            fuse_reply_err(req, EINVAL);
+            return;
+        }
+
         std::optional<std::shared_ptr<fs::File>> result;
         if (old_file->isDir()) {
             result = new_parent->crtDir(newname);
@@ -407,6 +417,11 @@ static void fat32_statfs(fuse_req_t req, fuse_ino_t ino) {
 
 // we will only create regular file.
 static void fat32_create(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode, struct fuse_file_info *fi) {
+    if (!filesystem->isValidName(name)) {
+        fuse_reply_err(req, EINVAL);
+        return;
+    }
+
     if (isIllegalFat32FileType(mode)) {
         fuse_reply_err(req, EPERM);
         return;
