@@ -677,6 +677,7 @@ namespace fs {
             : bpb_(bpb), fat_(fat), device_{std::move(device)} {}
 
     std::unique_ptr<FAT32fs> FAT32fs::from(std::shared_ptr<device::Device> device) noexcept {
+        // read and check BPB
         auto fst_sec = device->readSector(0).value();
         auto bpb = *((fat32::BPB *) fst_sec->read_ptr(0));
         if (!fat32::isValidFat32BPB(bpb)) { // todo: use fuse log instead.
@@ -684,8 +685,15 @@ namespace fs {
             exit(1);
         }
 
-        auto fat = fat32::FAT(bpb, 0xffffffff, device);
+        // read fs_info and FAT, then mark invalid in fs_info as we won't fully support fs_info feature
+        auto fs_info_sec = device->readSector(bpb.BPB_fs_info).value();
+        fat32::FSInfo *fs_info = (fat32::FSInfo *) fs_info_sec->write_ptr(0);
+        fat32::assertFSInfo(*fs_info);
+        auto fat = fat32::FAT(bpb, fs_info->free_count, device);
+        fs_info->free_count = 0xFFFFFFFF;
+        fs_info->nxt_free = 0xFFFFFFFF;
 
+        // everything is settled, make a FAT32fs and return
         return std::make_unique<FAT32fs>(bpb, fat, std::move(device));
     }
 
