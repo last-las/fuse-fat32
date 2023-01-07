@@ -78,7 +78,7 @@ namespace fs {
         return this->name_.c_str();
     }
 
-    u32 File::read(byte *buf, u32 size, u32 offset) noexcept {
+    u32 File::read(char *buf, u32 size, u32 offset) noexcept {
         fat32::BPB &bpb = fs_.bpb();
         u32 off_in_sec = offset / bpb.BPB_bytes_per_sec;
         u32 off_in_bytes = offset % bpb.BPB_bytes_per_sec;
@@ -88,7 +88,7 @@ namespace fs {
         }
 
         u32 remained_sz = std::min(size, file_sz() - offset);
-        byte *wrt_ptr = buf;
+        char *wrt_ptr = buf;
         auto sector = readSector(sec_no).value();
         u32 wrt_sz = std::min(remained_sz, bpb.BPB_bytes_per_sec - off_in_bytes);
         memcpy(wrt_ptr, sector->read_ptr(off_in_bytes), wrt_sz);
@@ -106,7 +106,7 @@ namespace fs {
         return wrt_ptr - buf;
     }
 
-    u32 File::write(const byte *buf, u32 size, u32 offset) noexcept {
+    u32 File::write(const char *buf, u32 size, u32 offset) noexcept {
         fat32::BPB &bpb = fs_.bpb();
         u32 off_in_sec = offset / bpb.BPB_bytes_per_sec;
         u32 off_in_bytes = offset % bpb.BPB_bytes_per_sec;
@@ -117,7 +117,7 @@ namespace fs {
         }
 
         u32 remained_sz = size;
-        const byte *read_ptr = buf;
+        const char *read_ptr = buf;
         auto sector = readSector(sec_no).value();
         u32 read_sz = std::min(remained_sz, bpb.BPB_bytes_per_sec - off_in_bytes);
         memcpy(sector->write_ptr(off_in_bytes), read_ptr, read_sz);
@@ -656,7 +656,7 @@ namespace fs {
     optional<fat32::LongDirEntry> Directory::readDirEntry(u32 n) noexcept {
         fat32::LongDirEntry l_dir_entry{};
         u32 entry_sz = sizeof(fat32::LongDirEntry);
-        u32 rd_sz = this->read((byte *) &l_dir_entry, entry_sz, entry_sz * n);
+        u32 rd_sz = this->read((char *) &l_dir_entry, entry_sz, entry_sz * n);
         if (rd_sz == entry_sz) {
             return {l_dir_entry};
         } else {
@@ -666,7 +666,7 @@ namespace fs {
 
     bool Directory::writeDirEntry(u32 n, fat32::LongDirEntry &dir_entry) noexcept {
         u32 entry_sz = sizeof(fat32::LongDirEntry);
-        u32 wrt_sz = this->write((const byte *) &dir_entry, entry_sz, entry_sz * n);
+        u32 wrt_sz = this->write((const char *) &dir_entry, entry_sz, entry_sz * n);
         return wrt_sz == entry_sz;
     }
 

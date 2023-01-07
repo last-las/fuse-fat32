@@ -12,7 +12,7 @@
 #include "fuse_common.h"
 #include "fs.h"
 
-using util::byte, util::u8, util::u16, util::u32, util::i64, util::u64;
+using util::u8, util::u16, util::u32, util::i64, util::u64;
 
 std::unique_ptr<fs::FAT32fs> filesystem;
 
@@ -303,7 +303,7 @@ static void fat32_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t offset
         return;
     }
     auto file = getExistFile(ino);
-    byte *buf = new byte[size];
+    char *buf = new char[size];
     auto cnt = file->read(buf, size, offset);
     fuse_reply_buf(req, buf, cnt);
     delete[] buf;
@@ -348,8 +348,8 @@ static void fat32_do_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
         return;
     }
     auto dir = std::dynamic_pointer_cast<fs::Directory>(file);
-    byte *buf = new byte[size];
-    byte *p = buf;
+    char *buf = new char[size];
+    char *p = buf;
     u32 rem = size;
     u64 offset_ = offset;
     while (true) {

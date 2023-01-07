@@ -19,7 +19,7 @@
 #define SEC_SIZE (0x200 * 0x8)
 #define BUF_SIZE (SEC_SIZE * 4)
 
-using util::byte, util::u8, util::u16, util::u32, util::i64, util::u64;
+using util::u8, util::u16, util::u32, util::i64, util::u64;
 
 u64 block_sz = 1024 * 1024 * 512; // 512MB
 char regular_file[] = "regular_file";

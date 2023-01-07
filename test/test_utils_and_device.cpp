@@ -128,17 +128,17 @@ TEST(LRUCacheMapTest, Remove) {
 }
 
 void testRegularRWOnDevice(device::Device &device) {
-    byte val = 0x66;
+    char val = 0x66;
     for (u32 i = 0; i < sector_num; ++i) {
         // write sector
         auto w_sector = device.readSector(i).value();
-        auto w_ptr = (byte *) w_sector->write_ptr(0);
+        auto w_ptr = (char *) w_sector->write_ptr(0);
         memset(w_ptr, val, SECTOR_SIZE);
         w_sector->sync();
 
         // read sector
         auto r_sector = device.readSector(i).value();
-        auto r_ptr = (const byte *) r_sector->read_ptr(0);
+        auto r_ptr = (const char *) r_sector->read_ptr(0);
         for (int j = 0; j < SECTOR_SIZE; ++j) {
             ASSERT_EQ(*r_ptr, val);
         }
@@ -146,17 +146,17 @@ void testRegularRWOnDevice(device::Device &device) {
 }
 
 void testBlkDevRWOnDevice(device::Device &device) {
-    byte val = 0x66;
+    char val = 0x66;
     for (u32 i = 0; i < sector_num; ++i) {
         // write sector
         auto w_sector = device.readSector(i).value();
-        auto w_ptr = (byte *) w_sector->write_ptr(0);
+        auto w_ptr = (char *) w_sector->write_ptr(0);
         memset(w_ptr, val, SECTOR_SIZE);
         w_sector->sync();
 
         // read sector
         auto r_sector = device.readSector(i).value();
-        auto r_ptr = (const byte *) r_sector->read_ptr(0);
+        auto r_ptr = (const char *) r_sector->read_ptr(0);
         for (int j = 0; j < SECTOR_SIZE; ++j) {
             ASSERT_EQ(*r_ptr, val);
         }
@@ -188,12 +188,12 @@ TEST(SectorTest, RWFromOffset) {
     auto off = 5;
     auto mess_len = strlen(message);
     auto w_sector = linux_file_driver.readSector(0).value();
-    auto w_ptr = (byte *) w_sector->write_ptr(off);
+    auto w_ptr = (char *) w_sector->write_ptr(off);
     strncpy(w_ptr, message, mess_len);
     w_sector->sync();
 
     auto r_sector = linux_file_driver.readSector(0).value();
-    auto r_ptr = (const byte *) w_sector->read_ptr(0);
+    auto r_ptr = (const char *) w_sector->read_ptr(0);
     ASSERT_EQ(strncmp(message, r_ptr + off, mess_len), 0);
 }
 
@@ -209,16 +209,16 @@ TEST(SectorTest, SectorDestructor) {
 
     {
         auto w_sector = linux_file_driver.readSector(0).value();
-        auto w_ptr = (byte *) w_sector->write_ptr(0);
+        auto w_ptr = (char *) w_sector->write_ptr(0);
         strncpy(w_ptr, message, mess_len);
 
         auto r_sector = linux_file_driver.readSector(0).value();
-        auto r_ptr = (const byte *) r_sector->read_ptr(0);
+        auto r_ptr = (const char *) r_sector->read_ptr(0);
         ASSERT_GT(strncmp(message, r_ptr, mess_len), 0);
     }
 
     auto r_sector = linux_file_driver.readSector(0).value();
-    auto r_ptr = (const byte *) r_sector->read_ptr(0);
+    auto r_ptr = (const char *) r_sector->read_ptr(0);
     ASSERT_EQ(strncmp(message, r_ptr, mess_len), 0);
 }
 

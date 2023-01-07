@@ -12,8 +12,8 @@ namespace util {
         size_t src_len = utf8_str.length();
         size_t dst_len = src_len * 2; // max possible gbk str size
         string_gbk gbk_str(dst_len, 0);
-        byte *src_ptr = (byte *) utf8_str.c_str();
-        byte *dst_ptr = (byte *) gbk_str.c_str();
+        char *src_ptr = (char *) utf8_str.c_str();
+        char *dst_ptr = (char *) gbk_str.c_str();
         size_t remained_dst_len = dst_len;
 
         std::optional<string_gbk> result = std::nullopt;
@@ -33,8 +33,8 @@ namespace util {
         size_t src_len = gbk_str.length();
         size_t dst_len = src_len * 4; // max possible utf str size
         string_utf8 utf8_str(dst_len, 0);
-        byte *src_ptr = (byte *) gbk_str.c_str();
-        byte *dst_ptr = (byte *) utf8_str.c_str();
+        char *src_ptr = (char *) gbk_str.c_str();
+        char *dst_ptr = (char *) utf8_str.c_str();
         size_t remained_dst_len = dst_len;
 
         std::optional<string_utf8> result = std::nullopt;
@@ -54,8 +54,8 @@ namespace util {
         size_t src_len = utf8_str.length();
         size_t dst_len = src_len * 2; // max possible unicode str size
         string_utf16 utf16_str(dst_len, 0);
-        byte *src_ptr = (byte *) utf8_str.c_str();
-        byte *dst_ptr = (byte *) utf16_str.c_str();
+        char *src_ptr = (char *) utf8_str.c_str();
+        char *dst_ptr = (char *) utf16_str.c_str();
         size_t remained_dst_len = dst_len;
 
         std::optional<string_utf16> result = std::nullopt;
@@ -75,8 +75,8 @@ namespace util {
         size_t src_len = utf16_str.length();
         size_t dst_len = src_len * 2; // max possible utf8 str size
         string_utf8 utf8_str(dst_len, 0);
-        byte *src_ptr = (byte *) utf16_str.c_str();
-        byte *dst_ptr = (byte *) utf8_str.c_str();
+        char *src_ptr = (char *) utf16_str.c_str();
+        char *dst_ptr = (char *) utf8_str.c_str();
         size_t remained_dst_len = dst_len;
 
         std::optional<string_utf8> result = std::nullopt;

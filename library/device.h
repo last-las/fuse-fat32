@@ -10,7 +10,7 @@
 #include "util.h"
 
 namespace device {
-    using util::byte, util::u8, util::u16, util::u32, util::i64, util::u64;
+    using util::u8, util::u16, util::u32, util::i64, util::u64;
 
     class Sector;
 

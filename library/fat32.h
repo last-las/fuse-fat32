@@ -12,7 +12,7 @@
 
 // todo: organize the structure of this file.
 namespace fat32 {
-    using util::byte, util::u8, util::u16, util::u32, util::i64, util::u64;
+    using util::u8, util::u16, util::u32, util::i64, util::u64;
 
     const u32 KFat32EocMark = 0x0FFFFFF8;
     const u32 KClnShutBitMask = 0x08000000;
@@ -138,11 +138,11 @@ namespace fat32 {
 
     struct FSInfo {
         u32 lead_sig;
-        byte reserved1[480];
+        char reserved1[480];
         u32 struc_sig;
         u32 free_count;
         u32 nxt_free;
-        byte reserved2[12];
+        char reserved2[12];
         u32 trail_sig;
     } __attribute__((packed));
 
@@ -178,8 +178,8 @@ namespace fat32 {
 
     struct ShortDirEntry {
         u8 name[11];
-        byte attr;
-        byte rsvd;
+        char attr;
+        char rsvd;
         FatTimeStamp2 crt_ts2;
         FatDate lst_acc_date;
         u16 fst_clus_high;

@@ -7,7 +7,7 @@
 #include "fat32.h"
 
 namespace fs {
-    using util::byte, util::u8, util::u16, util::u32, util::i64, util::u64;
+    using util::u8, util::u16, util::u32, util::i64, util::u64;
     using std::shared_ptr;
     using std::optional;
     using fat32::FatTimeStamp, fat32::FatTimeStamp2;
@@ -28,9 +28,9 @@ namespace fs {
          * */
         const char *name() noexcept;
 
-        u32 read(byte *buf, u32 size, u32 offset) noexcept;
+        u32 read(char *buf, u32 size, u32 offset) noexcept;
 
-        u32 write(const byte *buf, u32 size, u32 offset) noexcept;
+        u32 write(const char *buf, u32 size, u32 offset) noexcept;
 
         void sync(bool sync_meta) noexcept;
 
