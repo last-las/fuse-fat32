@@ -517,8 +517,11 @@ namespace fat32 {
     }
 
     void FAT::writeFatEntry(u32 sec_no, u32 fat_ent_offset, u32 val) noexcept {
-        auto sector = this->device_->readSector(sec_no).value();
-        writeFATClusEntryVal((u8 *) sector->write_ptr(0), fat_ent_offset, val);
+        u32 fat_sz = bpb_.BPB_FATsz32;
+        for(u16 i = 0; i < bpb_.BPB_num_fats; i++) {
+            auto sector = this->device_->readSector(sec_no + i * fat_sz).value();
+            writeFATClusEntryVal((u8 *) sector->write_ptr(0), fat_ent_offset, val);
+        }
     }
 
     u32 FAT::readFatEntry(u32 sec_no, u32 fat_ent_offset) noexcept {

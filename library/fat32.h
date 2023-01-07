@@ -305,10 +305,8 @@ namespace fat32 {
 
         void clearClusChain(const std::vector<u32> &clus_chain) noexcept;
 
-        // todo: perform writing on all the fats
         void writeFatEntry(u32 sec_no, u32 fat_ent_offset, u32 val) noexcept;
 
-        // todo: perform reading on all the fats
         u32 readFatEntry(u32 sec_no, u32 fat_ent_no) noexcept;
 
     private:

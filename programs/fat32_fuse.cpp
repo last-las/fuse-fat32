@@ -521,7 +521,7 @@ int main(int argc, char *argv[]) {
     if (fuse_session_mount(se, opts.mountpoint) != 0)
         goto err_out3;
 
-    real_device = std::make_shared<device::LinuxFileDriver>("/dev/sdb", SECTOR_SIZE);
+    real_device = std::make_shared<device::LinuxFileDriver>("/dev/sdc", SECTOR_SIZE);
     cache_mgr = std::make_shared<device::CacheManager>(std::move(real_device));
     filesystem = fs::FAT32fs::from(std::move(cache_mgr));
     fuse_daemonize(opts.foreground);
