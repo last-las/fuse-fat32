@@ -7,6 +7,7 @@
 #include "fat32.h"
 
 namespace fs {
+    using util::byte, util::u8, util::u16, util::u32, util::i64, util::u64;
     using std::shared_ptr;
     using std::optional;
     using fat32::FatTimeStamp, fat32::FatTimeStamp2;

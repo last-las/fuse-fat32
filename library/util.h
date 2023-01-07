@@ -7,16 +7,15 @@
 #include <initializer_list>
 #include <memory>
 
-// todo: move to namespace util
-typedef unsigned long long u64;
-typedef long long i64;
-typedef unsigned int u32;
-typedef unsigned short u16;
-typedef unsigned char u8;
-typedef char byte; // todo: byte should not be char but unsigned char!
-typedef u32 size;
-
 namespace util {
+    typedef unsigned long long u64;
+    typedef long long i64;
+    typedef unsigned int u32;
+    typedef unsigned short u16;
+    typedef unsigned char u8;
+    typedef char byte; // todo: byte should not be char but unsigned char!
+    typedef u32 size;
+
     typedef std::string string_utf8;
     typedef std::string string_gbk;
     typedef std::string string_utf16;

@@ -12,6 +12,8 @@
 
 // todo: organize the structure of this file.
 namespace fat32 {
+    using util::byte, util::u8, util::u16, util::u32, util::i64, util::u64;
+
     const u32 KFat32EocMark = 0x0FFFFFF8;
     const u32 KClnShutBitMask = 0x08000000;
     const u32 KHrdErrBitMask = 0x04000000;

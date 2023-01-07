@@ -12,6 +12,8 @@
 #include "fuse_common.h"
 #include "fs.h"
 
+using util::byte, util::u8, util::u16, util::u32, util::i64, util::u64;
+
 std::unique_ptr<fs::FAT32fs> filesystem;
 
 
