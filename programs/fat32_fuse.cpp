@@ -130,7 +130,7 @@ static void fat32_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int
     auto file = getExistFile(ino);
     if (valid & FUSE_SET_ATTR_SIZE) {
         if (!file->truncate(attr->st_size)) {
-            fuse_reply_err(req, EPERM);
+            fuse_reply_err(req, EFBIG);
             return;
         }
     }
