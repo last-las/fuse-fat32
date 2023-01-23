@@ -11,6 +11,7 @@
 #include "fuse_lowlevel.h"
 #include "fuse_common.h"
 #include "fs.h"
+#include "cmdline.h"
 
 using util::u8, util::u16, util::u32, util::i64, util::u64;
 
@@ -475,43 +476,38 @@ static const struct fuse_lowlevel_ops fat32_ll_oper = {
 };
 
 int main(int argc, char *argv[]) {
-    // TODO: parse arguments
-    // TODO: enable -o default_permissions;
-    // TODO: make sure the path exists!
-    char *fake_argv[] = {argv[0]};
-    int fake_argc = 1;
-    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
-    struct fuse_args fake_args = {fake_argc, fake_argv, 0};
     struct fuse_session *se;
-    struct fuse_cmdline_opts opts;
-    struct fuse_loop_config config;
     std::shared_ptr<device::LinuxFileDriver> real_device;
     std::shared_ptr<device::CacheManager> cache_mgr;
     int ret = -1;
+    std::string mountpoint, device_path;
+    cmdline::parser cmd_parser;
+    bool is_foreground, is_debug;
+    std::vector<const char *> arguments;
+    int fake_argc = 1;
+    char **fake_argv;
+    struct fuse_args fake_args;
 
-    if (fuse_parse_cmdline(&args, &opts) != 0)
-        return 1;
+    cmd_parser.add("debug", 'd', "enable debug mode");
+    cmd_parser.add("foreground", 'f', "foreground operation");
+    cmd_parser.add<std::string>("device-path", 'p', "the path to the device", true);
+    cmd_parser.add<std::string>("mountpoint", 'm', "the mountpoint", true);
+    cmd_parser.parse_check(argc, argv);
 
-    if (opts.show_help) {
-        printf("usage: %s [options] <mountpoint>\n\n", argv[0]);
-        fuse_cmdline_help();
-        fuse_lowlevel_help();
-        ret = 0;
-        goto err_out1;
-    } else if (opts.show_version) {
-        printf("FUSE library version %s\n", fuse_pkgversion());
-        fuse_lowlevel_version();
-        ret = 0;
-        goto err_out1;
+    mountpoint = util::getFullPath(cmd_parser.get<std::string>("mountpoint"));
+    device_path = util::getFullPath(cmd_parser.get<std::string>("device-path"));
+    is_foreground = cmd_parser.exist("foreground");
+    is_debug = cmd_parser.exist("debug");
+
+    arguments.push_back(argv[0]);
+    if (is_debug) {
+        arguments.push_back("-d");
+        fake_argc += 1;
     }
+    fake_argv = (char **) &arguments[0];
+    fake_args = {fake_argc, fake_argv, 0};
 
-    if (opts.mountpoint == NULL) {
-        printf("usage: %s [options] <mountpoint>\n", argv[0]);
-        printf("       %s --help\n", argv[0]);
-        ret = 1;
-        goto err_out1;
-    }
-
+    // We only use debug option, other fuse options are ignored.
     se = fuse_session_new(&fake_args, &fat32_ll_oper,
                           sizeof(fuse_lowlevel_ops), NULL);
     if (se == NULL)
@@ -520,32 +516,24 @@ int main(int argc, char *argv[]) {
     if (fuse_set_signal_handlers(se) != 0)
         goto err_out2;
 
-    if (fuse_session_mount(se, opts.mountpoint) != 0)
+    if (fuse_session_mount(se, mountpoint.c_str()) != 0)
         goto err_out3;
 
-    real_device = std::make_shared<device::LinuxFileDriver>("/dev/sdc", SECTOR_SIZE);
+    real_device = std::make_shared<device::LinuxFileDriver>(device_path, SECTOR_SIZE);
     cache_mgr = std::make_shared<device::CacheManager>(std::move(real_device));
     filesystem = fs::FAT32fs::from(std::move(cache_mgr));
-    fuse_daemonize(opts.foreground);
+    fuse_daemonize(is_foreground);
 
     /* Block until ctrl+c or fusermount -u */
-    if (opts.singlethread)
-        ret = fuse_session_loop(se);
-    else {
-        config.clone_fd = opts.clone_fd;
-        config.max_idle_threads = opts.max_idle_threads;
-        ret = fuse_session_loop_mt(se, &config);
-    }
-    filesystem->flush();
+    ret = fuse_session_loop(se);
 
+    filesystem->flush();
     fuse_session_unmount(se);
     err_out3:
     fuse_remove_signal_handlers(se);
     err_out2:
     fuse_session_destroy(se);
     err_out1:
-    free(opts.mountpoint);
-    fuse_opt_free_args(&args);
 
     return ret ? 1 : 0;
 }

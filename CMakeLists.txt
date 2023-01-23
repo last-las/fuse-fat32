@@ -44,7 +44,7 @@ target_include_directories(fuse PUBLIC libfuse/include libfuse/lib ${CMAKE_CURRE
 
 # fat32_fuse
 add_executable(fat32_fuse programs/fat32_fuse.cpp library/fs.cpp library/device.cpp library/fat32.cpp library/util.cpp)
-target_include_directories(fat32_fuse PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/)
+target_include_directories(fat32_fuse PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/library/ ${CMAKE_CURRENT_SOURCE_DIR}/cmdline/)
 target_link_libraries(fat32_fuse PRIVATE fuse pthread dl)
 
 # test
