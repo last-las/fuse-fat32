@@ -53,6 +53,8 @@ mkdir mnt_point
 sudo ./fat32_fuse -f -p /dev/sdc -m mnt_point
 ```
 
+![demo](demo.gif)
+
 
 
 ### About
