@@ -59,11 +59,11 @@ sudo ./fat32_fuse -f -p /dev/sdc -m mnt_point
 
 architecture:
 
-<img src="architecture.png" alt="architecture" style="zoom:40%;" />
+<img src="architecture.png" alt="architecture" width=40% height=40% />
 
 workflow:
 
-<img src="workflow.png" alt="workflow" style="zoom:40%;" />
+<img src="workflow.png" alt="workflow" width=40% height=40% />
 
 
 
