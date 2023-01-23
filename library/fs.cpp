@@ -6,7 +6,6 @@
 #include "fs.h"
 #include "fat32.h"
 
-// todo: long directory is not checked(eg, chksum) for simplicity..
 namespace fs {
     /**
      * File
@@ -134,7 +133,6 @@ namespace fs {
         return read_ptr - buf;
     }
 
-    // todo: add synced flag
     // todo: directory and file will write to the same area, this might introduce problems.
     void File::sync(bool sync_meta) noexcept {
         if (is_deleted_) {
@@ -215,7 +213,7 @@ namespace fs {
         return false;
     }
 
-    void File::markDeleted() noexcept {
+    void File::selfDestruct() noexcept {
         if (is_deleted_ || ino() == KRootDirIno) {
             return;
         }
@@ -680,7 +678,7 @@ namespace fs {
         // read and check BPB
         auto fst_sec = device->readSector(0).value();
         auto bpb = *((fat32::BPB *) fst_sec->read_ptr(0));
-        if (!fat32::isValidFat32BPB(bpb)) { // todo: use fuse log instead.
+        if (!fat32::isValidFat32BPB(bpb)) {
             printf("invalid BPB!\n");
             exit(1);
         }

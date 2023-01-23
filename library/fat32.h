@@ -10,7 +10,6 @@
  * For simplicity, Fat8/16 is not supported here.
  * */
 
-// todo: organize the structure of this file.
 namespace fat32 {
     using util::u8, util::u16, util::u32, util::i64, util::u64;
 

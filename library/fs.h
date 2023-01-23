@@ -50,8 +50,7 @@ namespace fs {
 
         virtual bool isDir() noexcept;
 
-        // todo: rename the function name
-        void markDeleted() noexcept;
+        void selfDestruct() noexcept;
 
         u64 ino() noexcept;
 
@@ -159,7 +158,6 @@ namespace fs {
         optional<shared_ptr<File>> lookupFile(const char *name) noexcept;
 
         /**
-         * todo: alter comment
          * Return the file ptr, or none if `entry_off` is out of bound.
          * Usually this function is used to traverse the files in this directory.
          *

@@ -198,7 +198,7 @@ static void fat32_unlink(fuse_req_t req, fuse_ino_t parent, const char *name) {
         return;
     }
     assert(parent_dir->delFile(name));
-    child->markDeleted();
+    child->selfDestruct();
     fuse_reply_err(req, 0);
 }
 
@@ -222,7 +222,7 @@ static void fat32_rmdir(fuse_req_t req, fuse_ino_t parent, const char *name) {
     }
 
     assert(parent_dir->delFile(name));
-    sub_dir->markDeleted();
+    sub_dir->selfDestruct();
     fuse_reply_err(req, 0);
 }
 
@@ -262,7 +262,7 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
         }
 
         new_file->exchangeMetaData(old_file);
-        old_file->markDeleted();
+        old_file->selfDestruct();
     } else { // newname doesn't exist
         if (!filesystem->isValidName(newname)) {
             fuse_reply_err(req, EINVAL);
@@ -281,7 +281,7 @@ static void fat32_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
         }
         auto new_file = result.value();
         new_file->exchangeMetaData(old_file);
-        old_file->markDeleted();
+        old_file->selfDestruct();
     }
 
     fuse_reply_err(req, 0);
@@ -478,10 +478,10 @@ int main(int argc, char *argv[]) {
     // TODO: parse arguments
     // TODO: enable -o default_permissions;
     // TODO: make sure the path exists!
-    // TODO: check the file name length!
-    // TODO: multiprocess: make sure if the file has been deleted other operation on this object should always fail.
-    // TODO: handle open with flags(e.g. O_APPEND, O_RDWR) properly.
+    char *fake_argv[] = {argv[0]};
+    int fake_argc = 1;
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    struct fuse_args fake_args = {fake_argc, fake_argv, 0};
     struct fuse_session *se;
     struct fuse_cmdline_opts opts;
     struct fuse_loop_config config;
@@ -512,7 +512,7 @@ int main(int argc, char *argv[]) {
         goto err_out1;
     }
 
-    se = fuse_session_new(&args, &fat32_ll_oper,
+    se = fuse_session_new(&fake_args, &fat32_ll_oper,
                           sizeof(fuse_lowlevel_ops), NULL);
     if (se == NULL)
         goto err_out1;

@@ -325,8 +325,8 @@ TEST_F(FileTest, MarkDeleted) {
     // delete a file and directory
     auto file = root->lookupFile(simple_file2).value();
     auto dir = root->lookupFile(simple_dir2).value();
-    file->markDeleted();
-    dir->markDeleted();
+    file->selfDestruct();
+    dir->selfDestruct();
     file->sync(true);
     dir->sync(true);
     filesystem->flush();
@@ -351,7 +351,7 @@ TEST_F(FileTest, RenameTargetExists) {
     old_file->truncate(buf_size);
     ASSERT_EQ(old_file->write(buf, buf_size, 0), buf_size);
     old_file->exchangeMetaData(new_file);
-    old_file->markDeleted();
+    old_file->selfDestruct();
 
     root->sync(true);
     new_file->sync(true);
@@ -405,7 +405,7 @@ TEST_F(FileTest, RenameTargetNotExists) {
     auto new_file = root->crtFile(non_exist_name).value();
     ASSERT_EQ(old_file->write(buf, buf_size, 0), buf_size);
     old_file->exchangeMetaData(new_file);
-    old_file->markDeleted();
+    old_file->selfDestruct();
 
     root->sync(true);
     new_file->sync(true);
@@ -425,7 +425,7 @@ TEST_F(DirTest, RenameTargetNotExists) {
     auto old_dir = root->lookupFile(exist_dir_name).value();
     auto new_dir = root->crtDir(non_exist_dir).value();
     old_dir->exchangeMetaData(new_dir);
-    old_dir->markDeleted();
+    old_dir->selfDestruct();
 
     root->sync(true);
     new_dir->sync(true);
